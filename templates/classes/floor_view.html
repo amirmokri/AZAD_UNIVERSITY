@@ -1,0 +1,1492 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}برنامه کلاسی - {{ day_name }} - {{ time_name }} - {{ faculty.faculty_name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Floor View Page - Beautiful Desktop & Mobile Design */
+
+.floor-view-section {
+    padding: 40px 20px;
+    background: linear-gradient(to bottom, #f8f9fa 0%, #ffffff 100%);
+    min-height: 70vh;
+}
+
+/* Search Container */
+.search-container {
+    max-width: 800px;
+    margin: 0 auto 40px;
+    background: white;
+    padding: 25px;
+    border-radius: 20px;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.08);
+}
+
+.search-form {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.search-input-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+    background: #f8f9fa;
+    border-radius: 50px;
+    padding: 5px 10px;
+    border: 2px solid #e9ecef;
+    transition: all 0.3s ease;
+}
+
+.search-input-container:focus-within {
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.search-icon {
+    font-size: 1.3rem;
+    margin: 0 10px;
+}
+
+.search-input {
+    flex: 1;
+    border: none;
+    background: transparent;
+    padding: 15px 10px;
+    font-size: 1.05rem;
+    outline: none;
+    font-family: 'Vazirmatn', sans-serif;
+}
+
+.search-button {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    padding: 12px 30px;
+    border-radius: 25px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 1rem;
+}
+
+.search-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+}
+
+.clear-button {
+    background: #f44336;
+    color: white;
+    padding: 12px 25px;
+    border-radius: 25px;
+    font-weight: 700;
+    transition: all 0.3s ease;
+}
+
+.clear-button:hover {
+    background: #d32f2f;
+}
+
+.search-results-info {
+    margin-top: 15px;
+    padding: 12px 20px;
+    background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+    border-radius: 15px;
+    border-left: 4px solid #2196F3;
+    font-weight: 600;
+    color: #1565c0;
+}
+
+/* Floor Container */
+.floor-container {
+    margin-bottom: 50px;
+    background: white;
+    border-radius: 25px;
+    padding: 35px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.08);
+    transition: all 0.4s ease;
+    border: 1px solid #e9ecef;
+}
+
+.floor-container:hover {
+    box-shadow: 0 15px 50px rgba(0,0,0,0.12);
+    transform: translateY(-3px);
+}
+
+/* Floor Header */
+.floor-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+    color: white;
+    padding: 35px;
+    border-radius: 20px;
+    margin-bottom: 35px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+}
+
+.floor-header::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(255,255,255,0.2) 0%, transparent 70%);
+    animation: rotate 20s linear infinite;
+}
+
+@keyframes rotate {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.floor-title {
+    font-size: 2.5rem;
+    font-weight: 800;
+    margin: 0;
+    position: relative;
+    z-index: 1;
+    text-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    letter-spacing: 1px;
+}
+
+.floor-title::before {
+    content: '🏢';
+    margin-left: 15px;
+    font-size: 2.3rem;
+}
+
+/* Rooms Grid - Side by Side Layout with Separator Line */
+.rooms-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 40px;
+    margin-top: 30px;
+    max-width: 1200px;
+    margin-left: auto;
+    margin-right: auto;
+    position: relative;
+}
+
+/* Side Columns */
+.side-column {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.left-column {
+    padding-right: 10px;
+}
+
+.right-column {
+    padding-left: 10px;
+}
+
+/* Vertical separator line between left and right sides */
+.rooms-grid::before {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: linear-gradient(to bottom, 
+        transparent 0%, 
+        #667eea 10%, 
+        #764ba2 50%, 
+        #667eea 90%, 
+        transparent 100%);
+    transform: translateX(-50%);
+    z-index: 1;
+    box-shadow: 0 0 10px rgba(102, 126, 234, 0.3);
+}
+
+@media (max-width: 768px) {
+    .rooms-grid {
+        gap: 20px;
+    }
+    
+    .rooms-grid::before {
+        width: 2px;
+    }
+    
+    .side-column {
+        gap: 15px;
+    }
+    
+    .left-column {
+        padding-right: 5px;
+    }
+    
+    .right-column {
+        padding-left: 5px;
+    }
+}
+
+/* Room Card - Compact Design */
+.room-card {
+    background: white;
+    border: 2px solid #e9ecef;
+    border-radius: 14px;
+    padding: 16px;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    height: fit-content;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+@media (max-width: 768px) {
+    .room-card {
+        padding: 12px;
+        border-radius: 12px;
+    }
+}
+
+.room-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 6px;
+    background: linear-gradient(90deg, #e9ecef 0%, #dee2e6 100%);
+    transition: all 0.3s ease;
+}
+
+/* Room with Active Class */
+.room-card.has-class {
+    border-color: #4CAF50;
+    background: linear-gradient(135deg, #ffffff 0%, #f1f8f4 100%);
+    box-shadow: 0 5px 25px rgba(76, 175, 80, 0.2);
+}
+
+.room-card.has-class::before {
+    background: linear-gradient(90deg, #4CAF50 0%, #45a049 100%);
+    height: 6px;
+}
+
+.room-card.has-class:hover {
+    border-color: #45a049;
+    box-shadow: 0 12px 40px rgba(76, 175, 80, 0.3);
+    transform: translateY(-8px) scale(1.02);
+}
+
+/* Room with Student-Reported Cancellation */
+.room-card.student-cancelled {
+    border-color: #f44336;
+    background: linear-gradient(135deg, #ffffff 0%, #ffebee 100%);
+    box-shadow: 0 5px 25px rgba(244, 67, 54, 0.25);
+}
+
+.room-card.student-cancelled::before {
+    background: linear-gradient(90deg, #f44336 0%, #d32f2f 100%);
+    height: 6px;
+}
+
+.room-card.student-cancelled:hover {
+    border-color: #d32f2f;
+    box-shadow: 0 12px 40px rgba(244, 67, 54, 0.35);
+}
+
+/* Room Class Not Held */
+.room-card.not-held {
+    border-color: #FF9800;
+    background: linear-gradient(135deg, #ffffff 0%, #fff8f0 100%);
+    box-shadow: 0 5px 25px rgba(255, 152, 0, 0.2);
+}
+
+.room-card.not-held::before {
+    background: linear-gradient(90deg, #FF9800 0%, #f57c00 100%);
+    height: 6px;
+}
+
+.room-card.not-held:hover {
+    border-color: #f57c00;
+    box-shadow: 0 12px 40px rgba(255, 152, 0, 0.3);
+    transform: translateY(-8px) scale(1.02);
+}
+
+/* Empty Room */
+.room-card.empty-room-card {
+    opacity: 0.5;
+    border-color: #e0e0e0;
+    border-style: dashed;
+    background: #fafafa;
+}
+
+.room-card.empty-room-card:hover {
+    opacity: 0.7;
+    transform: translateY(-3px);
+}
+
+.room-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 12px 35px rgba(0,0,0,0.15);
+}
+
+/* Room Header - Compact */
+.room-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #f0f0f0;
+}
+
+@media (max-width: 768px) {
+    .room-header {
+        margin-bottom: 10px;
+        padding-bottom: 8px;
+    }
+}
+
+/* Room Number - Compact */
+.room-number {
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: #1e3c72;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+@media (max-width: 768px) {
+    .room-number {
+        font-size: 1rem;
+    }
+}
+
+.room-number::before {
+    content: '🚪';
+    font-size: 1.1rem;
+}
+
+@media (max-width: 768px) {
+    .room-number::before {
+        font-size: 0.95rem;
+    }
+}
+
+.room-type {
+    font-size: 0.9rem;
+    color: #666;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    padding: 7px 15px;
+    border-radius: 20px;
+    font-weight: 600;
+    border: 1px solid #dee2e6;
+}
+
+/* Room Body */
+.room-body {
+    margin-top: 15px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Class Info - Compact Spacing */
+.class-info {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex: 1;
+}
+
+@media (max-width: 768px) {
+    .class-info {
+        gap: 6px;
+    }
+}
+
+/* Info Row - Compact */
+.info-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-size: 0.9rem;
+    padding: 6px 0;
+}
+
+@media (max-width: 768px) {
+    .info-row {
+        gap: 6px;
+        padding: 5px 0;
+        font-size: 0.85rem;
+    }
+}
+
+/* Info Label - Compact */
+.info-label {
+    font-weight: 700;
+    color: #495057;
+    min-width: 85px;
+    font-size: 0.85rem;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+@media (max-width: 768px) {
+    .info-label {
+        min-width: auto;
+        font-size: 0.8rem;
+    }
+}
+
+.info-value {
+    color: #212529;
+    font-weight: 600;
+    flex: 1;
+    line-height: 1.6;
+}
+
+/* Course Name - Compact */
+.course-name-large {
+    font-size: 1rem;
+    font-weight: 800;
+    color: #1e3c72;
+    line-height: 1.4;
+}
+
+@media (max-width: 768px) {
+    .course-name-large {
+        font-size: 0.9rem;
+    }
+}
+
+/* Teacher Name - Compact */
+.teacher-name-large {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #2a5298;
+}
+
+@media (max-width: 768px) {
+    .teacher-name-large {
+    font-size: 0.85rem;
+    }
+}
+
+.faculty-name {
+    font-weight: 600;
+    color: #667eea;
+    font-size: 0.9rem;
+    background: linear-gradient(135deg, #667eea20 0%, #764ba220 100%);
+    padding: 3px 10px;
+    border-radius: 6px;
+    display: inline-block;
+}
+
+/* Corridor Side Indicator - Compact */
+.corridor-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-weight: 700;
+    font-size: 0.8rem;
+    padding: 4px 10px;
+    border-radius: 6px;
+    background: linear-gradient(135deg, #28a74520 0%, #20c99720 100%);
+    color: #28a745;
+    margin-top: 6px;
+}
+
+@media (max-width: 768px) {
+    .corridor-indicator {
+        font-size: 0.75rem;
+        padding: 3px 8px;
+    }
+}
+
+/* Capacity Badge - Compact */
+.capacity-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 6px 12px;
+    border-radius: 15px;
+    font-weight: 700;
+    font-size: 0.85rem;
+    box-shadow: 0 3px 10px rgba(102, 126, 234, 0.25);
+}
+
+@media (max-width: 768px) {
+    .capacity-badge {
+        padding: 5px 10px;
+        font-size: 0.75rem;
+    }
+}
+
+.capacity-badge::before {
+    content: '👥';
+    font-size: 0.9rem;
+}
+
+@media (max-width: 768px) {
+    .capacity-badge::before {
+        font-size: 0.8rem;
+    }
+}
+
+/* Holding Status - Compact */
+.holding-status {
+    margin-top: 10px;
+    padding: 10px;
+    border-radius: 12px;
+    text-align: center;
+    font-weight: 700;
+    font-size: 0.85rem;
+}
+
+@media (max-width: 768px) {
+    .holding-status {
+        padding: 8px;
+        font-size: 0.8rem;
+    }
+}
+
+.holding-status.held {
+    background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+    color: #155724;
+    border: 2px solid #28a745;
+}
+
+.holding-status.not-held {
+    background: linear-gradient(135deg, #fff3cd 0%, #ffe69c 100%);
+    color: #856404;
+    border: 2px solid #ffc107;
+}
+
+.holding-status.student-cancelled {
+    background: linear-gradient(135deg, #ffcdd2 0%, #ef9a9a 100%);
+    color: #c62828;
+    border: 2px solid #f44336;
+    font-weight: 800;
+}
+
+/* Voting Section */
+.voting-section {
+    margin-top: 8px;
+}
+
+/* Vote Buttons - Compact */
+.vote-button {
+    width: 100%;
+    padding: 10px;
+    border-radius: 10px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-family: 'Vazirmatn', sans-serif;
+    font-size: 0.85rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    border: 2px solid;
+}
+
+/* Cancellation Button (Red Theme) */
+.vote-cancel {
+    background: white;
+    color: #f44336;
+    border-color: #f44336;
+}
+
+.vote-cancel:hover:not(:disabled) {
+    background: #f44336;
+    color: white;
+    transform: scale(1.02);
+}
+
+/* Confirmation Button (Green Theme) */
+.vote-confirm {
+    background: white;
+    color: #4CAF50;
+    border-color: #4CAF50;
+}
+
+.vote-confirm:hover:not(:disabled) {
+    background: #4CAF50;
+    color: white;
+    transform: scale(1.02);
+}
+
+@media (max-width: 768px) {
+    .vote-button {
+        padding: 8px;
+        font-size: 0.8rem;
+    }
+}
+
+.vote-button:hover:not(:disabled) {
+    background: #ff9800;
+    color: white;
+    transform: scale(1.02);
+}
+
+.vote-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.vote-button.voted {
+    background: #e0e0e0;
+    border-color: #9e9e9e;
+    color: #616161;
+}
+
+/* Vote Count Displays */
+.vote-count {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.8rem;
+    margin-top: 4px;
+    font-weight: 600;
+    justify-content: center;
+}
+
+.cancel-count {
+    color: #f44336;
+}
+
+.confirm-count {
+    color: #4CAF50;
+}
+
+/* Announcement Box */
+.announcement-box {
+    background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+    border: 2px solid #2196F3;
+    border-radius: 20px;
+    padding: 25px 30px;
+    margin-bottom: 40px;
+    box-shadow: 0 5px 20px rgba(33, 150, 243, 0.15);
+}
+
+.announcement-title {
+    font-size: 1.6rem;
+    font-weight: 800;
+    color: #1565c0;
+        margin-bottom: 15px;
+    display: flex;
+        align-items: center;
+    gap: 10px;
+}
+
+.announcement-content {
+    font-size: 1.05rem;
+    color: #0d47a1;
+    line-height: 1.8;
+    margin-bottom: 15px;
+}
+
+.announcement-steps {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    margin: 15px 0;
+}
+
+.announcement-steps ol {
+    margin: 0;
+    padding-right: 25px;
+}
+
+.announcement-steps li {
+    margin: 10px 0;
+    font-weight: 600;
+    color: #1976D2;
+}
+
+.announcement-warning {
+    background: linear-gradient(135deg, #fff3cd 0%, #ffe69c 100%);
+    border: 2px solid #ffc107;
+    border-radius: 12px;
+    padding: 15px 20px;
+    margin-top: 15px;
+    font-weight: 700;
+    color: #856404;
+        text-align: center;
+}
+
+/* Empty Room */
+.empty-room {
+    text-align: center;
+    color: #999;
+    font-style: italic;
+    padding: 40px 20px;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-radius: 15px;
+    font-size: 1.05rem;
+    opacity: 0.7;
+}
+
+.empty-room::before {
+    content: '📭';
+    display: block;
+    font-size: 3rem;
+    margin-bottom: 10px;
+}
+
+/* No Results Message */
+.no-results {
+    text-align: center;
+    padding: 80px 20px;
+    background: white;
+    border-radius: 25px;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.08);
+}
+
+.no-results-icon {
+    font-size: 5rem;
+    margin-bottom: 20px;
+    opacity: 0.5;
+}
+
+.no-results h2 {
+    font-size: 2rem;
+    color: #495057;
+    margin-bottom: 15px;
+}
+
+.no-results p {
+    font-size: 1.2rem;
+    color: #6c757d;
+}
+
+/* Page Header Improvements */
+.page-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 50px 20px;
+    box-shadow: 0 5px 25px rgba(102, 126, 234, 0.3);
+}
+
+.page-title {
+    font-size: 2.8rem;
+    margin-bottom: 12px;
+}
+
+.page-subtitle {
+    font-size: 1.3rem;
+    opacity: 0.95;
+    margin-bottom: 20px;
+}
+
+.back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 15px;
+    background: rgba(255, 255, 255, 0.2);
+    padding: 10px 25px;
+    border-radius: 25px;
+    font-weight: 600;
+    font-size: 1.05rem;
+    transition: all 0.3s ease;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.back-link:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: translateX(5px);
+}
+
+/* Page Header Responsive */
+@media (max-width: 768px) {
+    .page-header {
+        padding: 35px 15px;
+    }
+    
+    .page-title {
+        font-size: 1.6rem;
+    }
+    
+    .page-subtitle {
+        font-size: 1rem;
+    }
+    
+    .back-link {
+        font-size: 0.9rem;
+        padding: 8px 20px;
+    }
+}
+
+@media (max-width: 480px) {
+    .page-header {
+        padding: 25px 12px;
+    }
+    
+    .page-title {
+        font-size: 1.3rem;
+    }
+    
+    .page-subtitle {
+        font-size: 0.9rem;
+    }
+}
+
+/* Remove old desktop/tablet specific styles - now using fixed 2-column layout */
+
+/* Mobile - Already styled in specific sections above */
+
+@media (max-width: 480px) {
+    .rooms-grid {
+        gap: 15px;
+    }
+    
+    .floor-container {
+        padding: 12px;
+    }
+    
+    .floor-title {
+        font-size: 1.2rem;
+    }
+    
+    .announcement-box {
+        padding: 15px;
+    }
+    
+    .announcement-title {
+        font-size: 1.1rem;
+        flex-direction: column;
+        gap: 8px;
+    }
+    
+    .announcement-content {
+        font-size: 0.85rem;
+    }
+    
+    .announcement-steps {
+        padding: 12px;
+    }
+    
+    .announcement-steps li {
+        font-size: 0.85rem;
+        margin: 8px 0;
+    }
+    
+    .announcement-warning {
+        font-size: 0.8rem;
+        padding: 10px;
+    }
+}
+
+/* Animation on Load */
+.room-card {
+    animation: fadeInUp 0.6s ease-out backwards;
+}
+
+.room-card:nth-child(1) { animation-delay: 0.1s; }
+.room-card:nth-child(2) { animation-delay: 0.15s; }
+.room-card:nth-child(3) { animation-delay: 0.2s; }
+.room-card:nth-child(4) { animation-delay: 0.25s; }
+.room-card:nth-child(5) { animation-delay: 0.3s; }
+.room-card:nth-child(6) { animation-delay: 0.35s; }
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.floor-container {
+    animation: slideIn 0.8s ease-out;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateX(-50px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Page Header -->
+<section class="page-header">
+    <div class="container">
+        <h1 class="page-title">📚 برنامه کلاسی</h1>
+        <p class="page-subtitle">{{ faculty.faculty_name }} - {{ day_name }} - {{ time_name }}</p>
+        <a href="{% url 'classes:time_selection' faculty.id selected_day %}" class="back-link">
+            ← بازگشت به انتخاب زمان
+        </a>
+    </div>
+</section>
+
+<!-- Floor View Section -->
+<section class="floor-view-section">
+    <div class="container" style="max-width: 1600px;">
+        <!-- Announcement Box -->
+        <div class="announcement-box">
+            <h3 class="announcement-title">
+                📢 اطلاعیه: گزارش عدم برگزاری کلاس
+            </h3>
+            <div class="announcement-content">
+                دانشجویان عزیز، شما می‌توانید با رأی دادن به سایر دانشجویان اطلاع دهید که کلاس برگزار می‌شود یا نمی‌شود. سیستم رای‌گیری به صورت متعادل عمل می‌کند.
+            </div>
+                <div class="announcement-steps">
+                <ol>
+                    <li>دکمه "🚫 برگزار نمی‌شود" یا "✅ برگزار می‌شود" را کلیک کنید</li>
+                    <li>⚖️ <strong>سیستم متعادل:</strong> هر رای جدید، یک رای از طرف مقابل را کم می‌کند</li>
+                    <li>رای‌های لغو (🚫) → کلاس قرمز می‌شود (عدم برگزاری)</li>
+                    <li>رای‌های تأیید (✅) → کلاس سبز می‌شود (تأیید برگزاری)</li>
+                    <li>پس از ۳ رای خالص برای هر طرف، وضعیت تغییر می‌کند</li>
+                    <li>این وضعیت برای ۲۴ ساعت باقی می‌ماند و سپس ریست می‌شود</li>
+                </ol>
+            </div>
+            <div class="announcement-warning">
+                ⚠️ هشدار: این سیستم مبتنی بر اعتماد دانشجویان است. لطفاً تنها در صورت اطمینان کامل رای ثبت کنید. رای‌های نادرست باعث سردرگمی سایر دانشجویان می‌شود.
+            </div>
+        </div>
+        
+        <!-- Search Box -->
+        <div class="search-container">
+            <form method="get" class="search-form">
+                <div class="search-input-container">
+                    <span class="search-icon">🔍</span>
+                    <input 
+                        type="text" 
+                        name="q" 
+                        value="{{ search_query|default:'' }}" 
+                        placeholder="جستجو بر اساس نام استاد یا نام درس..." 
+                        class="search-input"
+                        aria-label="جستجو در کلاس‌ها"
+                    />
+                </div>
+                <div style="display: flex; gap: 10px; justify-content: center;">
+                    <button type="submit" class="search-button">
+                        🔍 جستجو
+                    </button>
+                    {% if search_query %}
+                    <a href="?" class="clear-button" style="text-decoration: none; display: inline-block;">
+                        ✕ پاک کردن
+                    </a>
+                    {% endif %}
+                </div>
+                {% if search_query %}
+                <div class="search-results-info">
+                    🔎 نتایج جستجو برای: <strong>"{{ search_query }}"</strong>
+                </div>
+                {% endif %}
+            </form>
+        </div>
+        
+        <!-- Floors and Rooms -->
+        {% if floor_data %}
+            {% for floor_info in floor_data %}
+            <div class="floor-container">
+                <!-- Floor Header -->
+                <div class="floor-header">
+                    <h2 class="floor-title">{{ floor_info.floor.floor_name }}</h2>
+                </div>
+                
+                <!-- Rooms Grid - Left Side Column -->
+                <div class="rooms-grid">
+                    <!-- Left Column (Left side of corridor) -->
+                    <div class="side-column left-column">
+                        {% for room_info in floor_info.left_rooms %}
+                        <div class="room-card {% if room_info.schedule %}{% if room_info.schedule.student_reported_not_holding %}student-cancelled{% elif room_info.schedule.is_holding %}has-class{% else %}not-held{% endif %}{% else %}empty-room-card{% endif %}">
+                                <div class="room-header">
+                                    <span class="room-number">{{ room_info.room.room_number }}</span>
+                                    <span class="room-type">{{ room_info.room.get_room_type_display }}</span>
+                                </div>
+                                <div class="room-body">
+                                    {% if room_info.schedule %}
+                                        <div class="class-info">
+                                            <div class="info-row">
+                                        <span class="info-label">📚 درس:</span>
+                                        <span class="info-value course-name-large">{{ room_info.schedule.course.course_name }}</span>
+                                    </div>
+                                    <div class="info-row">
+                                        <span class="info-label">🔢 کد درس:</span>
+                                        <span class="info-value">{{ room_info.schedule.course.course_code }}</span>
+                                    </div>
+                                    <div class="info-row">
+                                        <span class="info-label">🏛️ دانشکده:</span>
+                                        <span class="info-value faculty-name">{{ room_info.schedule.course.faculty.faculty_name|default:"تعیین نشده" }}</span>
+                                    </div>
+                                    <div class="info-row">
+                                        <span class="info-label">👨‍🏫 استاد:</span>
+                                        <span class="info-value teacher-name-large">{{ room_info.schedule.teacher.full_name|default:"تعیین نشده" }}</span>
+                                            </div>
+                                            <div class="info-row">
+                                                <span class="capacity-badge">{{ room_info.room.capacity }} نفر</span>
+                                            </div>
+                                    <div class="info-row">
+                                        <span class="corridor-indicator">
+                                            {% if room_info.room.position == 'left' %}
+                                                ← سمت چپ راهرو
+                                            {% elif room_info.room.position == 'right' %}
+                                                سمت راست راهرو →
+                                            {% elif room_info.room.position == 'middle' %}
+                                                ☰ وسط (دو طرفه)
+                                                {% else %}
+                                                📍 {{ room_info.room.get_position_display|default:"موقعیت نامشخص" }}
+                                                {% endif %}
+                                        </span>
+                                            </div>
+                                    <div class="holding-status {% if room_info.schedule.student_reported_not_holding %}student-cancelled{% elif room_info.schedule.is_holding %}held{% else %}not-held{% endif %}">
+                                        {% if room_info.schedule.student_reported_not_holding %}
+                                            ⚠️ دانشجویان گزارش داده‌اند: کلاس برگزار نمی‌شود
+                                        {% elif room_info.schedule.is_holding %}
+                                            ✅ کلاس برگزار می‌شود
+                                        {% else %}
+                                            ⏸️ کلاس برگزار نمی‌شود
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <!-- Vote Buttons -->
+                                    <div class="voting-section">
+                                        <button class="vote-button vote-cancel" 
+                                                data-schedule-id="{{ room_info.schedule.id }}"
+                                                onclick="voteForCancellation(this, {{ room_info.schedule.id }})">
+                                            🚫 برگزار نمی‌شود
+                                        </button>
+                                        <div class="vote-count cancel-count">
+                                            <span id="cancel-count-{{ room_info.schedule.id }}">{{ room_info.schedule.get_cancellation_vote_count }}</span> رای
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="voting-section">
+                                        <button class="vote-button vote-confirm" 
+                                                data-schedule-id="{{ room_info.schedule.id }}"
+                                                onclick="voteForConfirmation(this, {{ room_info.schedule.id }})">
+                                            ✅ برگزار می‌شود
+                                        </button>
+                                        <div class="vote-count confirm-count">
+                                            <span id="confirm-count-{{ room_info.schedule.id }}">{{ room_info.schedule.get_confirmation_vote_count }}</span> رای
+                                        </div>
+                                    </div>
+                                </div>
+                            {% else %}
+                                <div class="empty-room">
+                                    کلاسی برنامه‌ریزی نشده
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                    
+                    <!-- Right Column (Right side of corridor) -->
+                    <div class="side-column right-column">
+                        {% for room_info in floor_info.right_rooms %}
+                    <div class="room-card {% if room_info.schedule %}{% if room_info.schedule.student_reported_not_holding %}student-cancelled{% elif room_info.schedule.is_holding %}has-class{% else %}not-held{% endif %}{% else %}empty-room-card{% endif %}">
+                                <div class="room-header">
+                            <span class="room-number">{{ room_info.room.room_number }}</span>
+                                    <span class="room-type">{{ room_info.room.get_room_type_display }}</span>
+                                </div>
+                                <div class="room-body">
+                                    {% if room_info.schedule %}
+                                        <div class="class-info">
+                                            <div class="info-row">
+                                        <span class="info-label">📚 درس:</span>
+                                        <span class="info-value course-name-large">{{ room_info.schedule.course.course_name }}</span>
+                                            </div>
+                                            <div class="info-row">
+                                                <span class="info-label">🔢 کد درس:</span>
+                                                <span class="info-value">{{ room_info.schedule.course.course_code }}</span>
+                                            </div>
+                                            <div class="info-row">
+                                        <span class="info-label">🏛️ دانشکده:</span>
+                                        <span class="info-value faculty-name">{{ room_info.schedule.course.faculty.faculty_name|default:"تعیین نشده" }}</span>
+                                    </div>
+                                    <div class="info-row">
+                                        <span class="info-label">👨‍🏫 استاد:</span>
+                                        <span class="info-value teacher-name-large">{{ room_info.schedule.teacher.full_name|default:"تعیین نشده" }}</span>
+                                    </div>
+                                    <div class="info-row">
+                                                <span class="capacity-badge">{{ room_info.room.capacity }} نفر</span>
+                                            </div>
+                                    <div class="info-row">
+                                        <span class="corridor-indicator">
+                                            {% if room_info.room.position == 'left' %}
+                                                ← سمت چپ راهرو
+                                            {% elif room_info.room.position == 'right' %}
+                                                سمت راست راهرو →
+                                            {% elif room_info.room.position == 'middle' %}
+                                                ☰ وسط (دو طرفه)
+                                            {% else %}
+                                                📍 {{ room_info.room.get_position_display|default:"موقعیت نامشخص" }}
+                                            {% endif %}
+                                        </span>
+                                    </div>
+                                    <div class="holding-status {% if room_info.schedule.student_reported_not_holding %}student-cancelled{% elif room_info.schedule.is_holding %}held{% else %}not-held{% endif %}">
+                                        {% if room_info.schedule.student_reported_not_holding %}
+                                            ⚠️ دانشجویان گزارش داده‌اند: کلاس برگزار نمی‌شود
+                                        {% elif room_info.schedule.is_holding %}
+                                                    ✅ کلاس برگزار می‌شود
+                                                {% else %}
+                                                    ⏸️ کلاس برگزار نمی‌شود
+                                                {% endif %}
+                                            </div>
+                                    
+                                    <!-- Vote Buttons -->
+                                    <div class="voting-section">
+                                        <button class="vote-button vote-cancel" 
+                                                data-schedule-id="{{ room_info.schedule.id }}"
+                                                onclick="voteForCancellation(this, {{ room_info.schedule.id }})">
+                                            🚫 برگزار نمی‌شود
+                                        </button>
+                                        <div class="vote-count cancel-count">
+                                            <span id="cancel-count-{{ room_info.schedule.id }}">{{ room_info.schedule.get_cancellation_vote_count }}</span> رای
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="voting-section">
+                                        <button class="vote-button vote-confirm" 
+                                                data-schedule-id="{{ room_info.schedule.id }}"
+                                                onclick="voteForConfirmation(this, {{ room_info.schedule.id }})">
+                                            ✅ برگزار می‌شود
+                                        </button>
+                                        <div class="vote-count confirm-count">
+                                            <span id="confirm-count-{{ room_info.schedule.id }}">{{ room_info.schedule.get_confirmation_vote_count }}</span> رای
+                                        </div>
+                                            </div>
+                                        </div>
+                                    {% else %}
+                                        <div class="empty-room">
+                                            کلاسی برنامه‌ریزی نشده
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        {% endfor %}
+                    
+                    {% for room_info in floor_info.center_rooms %}
+                    <div class="room-card {% if room_info.schedule %}{% if room_info.schedule.student_reported_not_holding %}student-cancelled{% elif room_info.schedule.is_holding %}has-class{% else %}not-held{% endif %}{% else %}empty-room-card{% endif %}">
+                                <div class="room-header">
+                            <span class="room-number">{{ room_info.room.room_number }}</span>
+                                    <span class="room-type">{{ room_info.room.get_room_type_display }}</span>
+                                </div>
+                                <div class="room-body">
+                                    {% if room_info.schedule %}
+                                        <div class="class-info">
+                                            <div class="info-row">
+                                        <span class="info-label">📚 درس:</span>
+                                        <span class="info-value course-name-large">{{ room_info.schedule.course.course_name }}</span>
+                                            </div>
+                                            <div class="info-row">
+                                                <span class="info-label">🔢 کد درس:</span>
+                                                <span class="info-value">{{ room_info.schedule.course.course_code }}</span>
+                                            </div>
+                                            <div class="info-row">
+                                        <span class="info-label">🏛️ دانشکده:</span>
+                                        <span class="info-value faculty-name">{{ room_info.schedule.course.faculty.faculty_name|default:"تعیین نشده" }}</span>
+                                    </div>
+                                    <div class="info-row">
+                                        <span class="info-label">👨‍🏫 استاد:</span>
+                                        <span class="info-value teacher-name-large">{{ room_info.schedule.teacher.full_name|default:"تعیین نشده" }}</span>
+                                    </div>
+                                    <div class="info-row">
+                                                <span class="capacity-badge">{{ room_info.room.capacity }} نفر</span>
+                                            </div>
+                                    <div class="info-row">
+                                        <span class="corridor-indicator">
+                                            {% if room_info.room.position == 'left' %}
+                                                ← سمت چپ راهرو
+                                            {% elif room_info.room.position == 'right' %}
+                                                سمت راست راهرو →
+                                            {% elif room_info.room.position == 'middle' %}
+                                                ☰ وسط (دو طرفه)
+                                            {% else %}
+                                                📍 {{ room_info.room.get_position_display|default:"موقعیت نامشخص" }}
+                                            {% endif %}
+                                        </span>
+                                    </div>
+                                    <div class="holding-status {% if room_info.schedule.student_reported_not_holding %}student-cancelled{% elif room_info.schedule.is_holding %}held{% else %}not-held{% endif %}">
+                                        {% if room_info.schedule.student_reported_not_holding %}
+                                            ⚠️ دانشجویان گزارش داده‌اند: کلاس برگزار نمی‌شود
+                                        {% elif room_info.schedule.is_holding %}
+                                                    ✅ کلاس برگزار می‌شود
+                                                {% else %}
+                                                    ⏸️ کلاس برگزار نمی‌شود
+                                                {% endif %}
+                                            </div>
+                                    
+                                    <!-- Vote Buttons -->
+                                    <div class="voting-section">
+                                        <button class="vote-button vote-cancel" 
+                                                data-schedule-id="{{ room_info.schedule.id }}"
+                                                onclick="voteForCancellation(this, {{ room_info.schedule.id }})">
+                                            🚫 برگزار نمی‌شود
+                                        </button>
+                                        <div class="vote-count cancel-count">
+                                            <span id="cancel-count-{{ room_info.schedule.id }}">{{ room_info.schedule.get_cancellation_vote_count }}</span> رای
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="voting-section">
+                                        <button class="vote-button vote-confirm" 
+                                                data-schedule-id="{{ room_info.schedule.id }}"
+                                                onclick="voteForConfirmation(this, {{ room_info.schedule.id }})">
+                                            ✅ برگزار می‌شود
+                                        </button>
+                                        <div class="vote-count confirm-count">
+                                            <span id="confirm-count-{{ room_info.schedule.id }}">{{ room_info.schedule.get_confirmation_vote_count }}</span> رای
+                                        </div>
+                                            </div>
+                                        </div>
+                                    {% else %}
+                                        <div class="empty-room">
+                                            کلاسی برنامه‌ریزی نشده
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="no-results">
+                <div class="no-results-icon">📭</div>
+                <h2>کلاسی یافت نشد</h2>
+                <p>در این زمان برای این دانشکده کلاسی برنامه‌ریزی نشده است</p>
+            </div>
+        {% endif %}
+    </div>
+</section>
+
+<script>
+/**
+ * Voting functionality for class cancellation and confirmation
+ * Students can vote whether a class will be held or not
+ */
+
+// Vote that class will NOT be held
+function voteForCancellation(button, scheduleId) {
+    // Disable button to prevent double-clicking
+    button.disabled = true;
+    const originalText = button.textContent;
+    button.textContent = '⏳ در حال ثبت...';
+    
+    // Send cancellation vote to server
+    fetch('{% url "classes:vote_cancellation" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            schedule_id: scheduleId
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Update cancel vote count
+            const cancelCountElement = document.getElementById(`cancel-count-${scheduleId}`);
+            if (cancelCountElement) {
+                cancelCountElement.textContent = data.vote_count;
+            }
+            
+            // Update confirm vote count (reduced by 1 due to balancing)
+            if (data.confirm_vote_count !== undefined) {
+                const confirmCountElement = document.getElementById(`confirm-count-${scheduleId}`);
+                if (confirmCountElement) {
+                    confirmCountElement.textContent = data.confirm_vote_count;
+                }
+            }
+            
+            // Update button state
+            button.classList.add('voted');
+            button.textContent = '✓ ثبت شد';
+            
+            // Show success message
+            showNotification('success', data.message);
+            
+            // If threshold reached, reload page to show updated status
+            if (data.threshold_reached) {
+                setTimeout(() => {
+                    location.reload();
+                }, 2000);
+            }
+        } else {
+            // Re-enable button
+            button.disabled = false;
+            button.textContent = originalText;
+            
+            // Show error message
+            if (data.already_voted) {
+                button.classList.add('voted');
+                button.textContent = '✓ قبلاً رای داده‌اید';
+                showNotification('info', 'شما قبلاً رای داده‌اید');
+            } else {
+                showNotification('error', data.error || 'خطا در ثبت رای');
+            }
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        button.disabled = false;
+        button.textContent = originalText;
+        showNotification('error', 'خطا در ارتباط با سرور');
+    });
+}
+
+// Vote that class WILL be held
+function voteForConfirmation(button, scheduleId) {
+    // Disable button to prevent double-clicking
+    button.disabled = true;
+    const originalText = button.textContent;
+    button.textContent = '⏳ در حال ثبت...';
+    
+    // Send confirmation vote to server
+    fetch('{% url "classes:vote_confirmation" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            schedule_id: scheduleId
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Update confirm vote count
+            const confirmCountElement = document.getElementById(`confirm-count-${scheduleId}`);
+            if (confirmCountElement) {
+                confirmCountElement.textContent = data.vote_count;
+            }
+            
+            // Update cancel vote count (reduced by 1 due to balancing)
+            if (data.cancel_vote_count !== undefined) {
+                const cancelCountElement = document.getElementById(`cancel-count-${scheduleId}`);
+                if (cancelCountElement) {
+                    cancelCountElement.textContent = data.cancel_vote_count;
+                }
+            }
+            
+            // Update button state
+            button.classList.add('voted');
+            button.textContent = '✓ ثبت شد';
+            
+            // Show success message
+            showNotification('success', data.message);
+            
+            // If threshold reached, reload page to show updated status
+            if (data.threshold_reached) {
+                setTimeout(() => {
+                    location.reload();
+                }, 2000);
+            }
+        } else {
+            // Re-enable button
+            button.disabled = false;
+            button.textContent = originalText;
+            
+            // Show error message
+            if (data.already_voted) {
+                button.classList.add('voted');
+                button.textContent = '✓ قبلاً رای داده‌اید';
+                showNotification('info', 'شما قبلاً رای داده‌اید');
+            } else {
+                showNotification('error', data.error || 'خطا در ثبت رای');
+            }
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        button.disabled = false;
+        button.textContent = originalText;
+        showNotification('error', 'خطا در ارتباط با سرور');
+    });
+}
+
+// Notification system
+function showNotification(type, message) {
+    const notification = document.createElement('div');
+    notification.className = `notification notification-${type}`;
+    notification.textContent = message;
+    
+    // Styles
+    notification.style.position = 'fixed';
+    notification.style.top = '100px';
+    notification.style.right = '20px';
+    notification.style.padding = '15px 25px';
+    notification.style.borderRadius = '12px';
+    notification.style.fontWeight = '700';
+    notification.style.zIndex = '9999';
+    notification.style.maxWidth = '400px';
+    notification.style.boxShadow = '0 5px 20px rgba(0,0,0,0.2)';
+    notification.style.animation = 'slideIn 0.5s ease-out';
+    
+    // Colors based on type
+    if (type === 'success') {
+        notification.style.background = 'linear-gradient(135deg, #4CAF50, #45a049)';
+        notification.style.color = 'white';
+    } else if (type === 'error') {
+        notification.style.background = 'linear-gradient(135deg, #f44336, #d32f2f)';
+        notification.style.color = 'white';
+    } else if (type === 'info') {
+        notification.style.background = 'linear-gradient(135deg, #2196F3, #1976D2)';
+        notification.style.color = 'white';
+    }
+    
+    document.body.appendChild(notification);
+    
+    // Remove after 4 seconds
+    setTimeout(() => {
+        notification.style.animation = 'slideOut 0.5s ease-out';
+        setTimeout(() => {
+            notification.remove();
+        }, 500);
+    }, 4000);
+}
+
+// Add CSS for notifications
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes slideIn {
+        from {
+            transform: translateX(400px);
+            opacity: 0;
+        }
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+    @keyframes slideOut {
+        from {
+            transform: translateX(0);
+            opacity: 1;
+        }
+        to {
+            transform: translateX(400px);
+            opacity: 0;
+        }
+    }
+`;
+document.head.appendChild(style);
+</script>
+{% endblock %}
+

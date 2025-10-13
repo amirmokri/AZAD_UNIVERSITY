@@ -1,0 +1,201 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}خطای سرور - 500{% endblock %}
+
+{% block extra_css %}
+<style>
+/* 500 Error Page Styles */
+.error-container {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 20px;
+}
+
+.error-card {
+    background: white;
+    border-radius: 20px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.1);
+    padding: 60px 40px;
+    text-align: center;
+    max-width: 500px;
+    width: 100%;
+    position: relative;
+    overflow: hidden;
+}
+
+.error-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 5px;
+    background: linear-gradient(90deg, #ffc107 0%, #fd7e14 100%);
+}
+
+.error-icon {
+    width: 120px;
+    height: 120px;
+    background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 30px;
+    font-size: 3rem;
+    color: white;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.05);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+
+.error-code {
+    font-size: 4rem;
+    font-weight: 700;
+    color: #ffc107;
+    margin-bottom: 20px;
+    text-shadow: 2px 2px 4px rgba(255, 193, 7, 0.2);
+}
+
+.error-title {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: #1e3c72;
+    margin-bottom: 15px;
+}
+
+.error-description {
+    font-size: 1.1rem;
+    color: #6c757d;
+    margin-bottom: 30px;
+    line-height: 1.6;
+}
+
+.error-actions {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.error-btn {
+    display: inline-block;
+    padding: 12px 24px;
+    border-radius: 25px;
+    text-decoration: none;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    border: none;
+    cursor: pointer;
+}
+
+.error-btn.primary {
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+    color: white;
+}
+
+.error-btn.primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(30, 60, 114, 0.3);
+    color: white;
+    text-decoration: none;
+}
+
+.error-btn.secondary {
+    background: transparent;
+    color: #1e3c72;
+    border: 2px solid #1e3c72;
+}
+
+.error-btn.secondary:hover {
+    background: #1e3c72;
+    color: white;
+    text-decoration: none;
+}
+
+.retry-btn {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    color: white;
+}
+
+.retry-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(40, 167, 69, 0.3);
+    color: white;
+    text-decoration: none;
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+    .error-container {
+        padding: 15px;
+    }
+    
+    .error-card {
+        padding: 40px 25px;
+    }
+    
+    .error-icon {
+        width: 80px;
+        height: 80px;
+        font-size: 2rem;
+    }
+    
+    .error-code {
+        font-size: 3rem;
+    }
+    
+    .error-title {
+        font-size: 1.5rem;
+    }
+    
+    .error-description {
+        font-size: 1rem;
+    }
+    
+    .error-actions {
+        flex-direction: column;
+        align-items: center;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="error-container">
+    <div class="error-card">
+        <div class="error-icon">⚠️</div>
+        <div class="error-code">500</div>
+        <h1 class="error-title">خطای سرور</h1>
+        <p class="error-description">
+            متأسفانه خطایی در سرور رخ داده است. تیم فنی ما در حال بررسی مشکل است. 
+            لطفاً چند دقیقه دیگر دوباره تلاش کنید.
+        </p>
+        <div class="error-actions">
+            <button onclick="location.reload()" class="error-btn retry-btn">
+                🔄 تلاش مجدد
+            </button>
+            <a href="{% url 'classes:home' %}" class="error-btn primary">
+                🏠 بازگشت به صفحه اصلی
+            </a>
+            <button onclick="history.back()" class="error-btn secondary">
+                ← بازگشت
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}

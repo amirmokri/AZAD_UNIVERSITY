@@ -1,0 +1,430 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}انتخاب دانشکده - دانشگاه آزاد اسلامی واحد کرج{% endblock %}
+
+{% block content %}
+<!-- Page Header -->
+<section class="page-header">
+    <div class="container">
+        <h1 class="page-title">دانشگاه آزاد اسلامی واحد کرج</h1>
+        <p class="page-subtitle">سیستم مدیریت برنامه کلاسی</p>
+    </div>
+</section>
+
+<!-- Introduction Section -->
+<section class="intro-section">
+    <div class="container">
+        <div class="intro-box">
+            <h2 class="intro-title">📚 انتخاب دانشکده</h2>
+            <p class="intro-text">لطفاً دانشکده خود را انتخاب کنید تا برنامه کلاسی مربوطه نمایش داده شود.</p>
+        </div>
+    </div>
+</section>
+
+<!-- Faculty Selection Section -->
+<section class="faculty-selection">
+    <div class="container">
+        <h2 class="section-title">دانشکده‌ها</h2>
+        <div class="faculty-grid">
+            {% for faculty in faculties %}
+            <a href="{% url 'classes:class_affairs' faculty.id %}" class="faculty-card">
+                <div class="faculty-icon">
+                    {% if faculty.faculty_image %}
+                        <img src="{% static faculty.get_image_url %}" 
+                             alt="{{ faculty.faculty_name }}" 
+                             class="faculty-image"
+                             onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                        <span class="faculty-icon-fallback" style="display: none;">🏛️</span>
+                    {% else %}
+                        🏛️
+                    {% endif %}
+                </div>
+                <h3 class="faculty-name">{{ faculty.faculty_name }}</h3>
+                <p class="faculty-code">کد: {{ faculty.faculty_code }}</p>
+                {% if faculty.description %}
+                <p class="faculty-description">{{ faculty.description|truncatewords:15 }}</p>
+                {% endif %}
+                <div class="faculty-arrow">◀</div>
+            </a>
+            {% empty %}
+            <div class="no-faculties">
+                <p>در حال حاضر هیچ دانشکده‌ای فعال نیست.</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+
+<style>
+/* Page Header */
+.page-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 100px 20px;
+    text-align: center;
+    margin-bottom: 60px;
+    box-shadow: 0 5px 25px rgba(102, 126, 234, 0.3);
+    position: relative;
+    overflow: hidden;
+}
+
+.page-header::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: url('data:image/svg+xml,<svg width="100" height="100" xmlns="http://www.w3.org/2000/svg"><rect fill="rgba(255,255,255,0.05)" width="50" height="50"/></svg>');
+    background-size: 100px 100px;
+    opacity: 0.3;
+}
+
+.page-title {
+    font-size: 3rem;
+    font-weight: 800;
+    margin-bottom: 18px;
+    text-shadow: 0 3px 10px rgba(0,0,0,0.3);
+    letter-spacing: 1px;
+    position: relative;
+    z-index: 1;
+}
+
+.page-subtitle {
+    font-size: 1.4rem;
+    opacity: 0.95;
+    position: relative;
+    z-index: 1;
+    font-weight: 500;
+}
+
+/* Introduction Section */
+.intro-section {
+    margin-bottom: 50px;
+}
+
+.intro-box {
+    background: white;
+    padding: 30px;
+    border-radius: 15px;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.intro-title {
+    font-size: 1.8rem;
+    color: #1e3c72;
+    margin-bottom: 15px;
+    text-align: center;
+}
+
+.intro-text {
+    font-size: 1.1rem;
+    color: #555;
+    text-align: center;
+    line-height: 1.8;
+}
+
+/* Faculty Selection */
+.faculty-selection {
+    padding: 40px 20px;
+}
+
+.section-title {
+    font-size: 2rem;
+    color: #1e3c72;
+    text-align: center;
+    margin-bottom: 40px;
+    font-weight: 600;
+}
+
+/* Faculty Grid - Compact: 2 on desktop, 4 (2x2) on mobile */
+.faculty-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 25px;
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+@media (max-width: 768px) {
+    .faculty-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 15px;
+    }
+}
+
+/* Faculty Card - Compact Design */
+.faculty-card {
+    background: white;
+    padding: 30px 25px;
+    border-radius: 20px;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.08);
+    text-decoration: none;
+    color: inherit;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+    border: 2px solid transparent;
+    min-height: 320px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+}
+
+@media (max-width: 768px) {
+    .faculty-card {
+        padding: 20px 15px;
+        min-height: 260px;
+    }
+}
+
+.faculty-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 6px;
+    background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+    transform: scaleX(0);
+    transition: transform 0.4s ease;
+}
+
+.faculty-card:hover::before {
+    transform: scaleX(1);
+}
+
+.faculty-card:hover {
+    transform: translateY(-8px) scale(1.02);
+    box-shadow: 0 20px 50px rgba(102, 126, 234, 0.3);
+    border-color: #764ba2;
+}
+
+/* Faculty Icon - Compact Size */
+.faculty-icon {
+    font-size: 3.5rem;
+    text-align: center;
+    margin-bottom: 15px;
+    filter: drop-shadow(0 3px 6px rgba(0,0,0,0.1));
+    min-height: 100px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+@media (max-width: 768px) {
+    .faculty-icon {
+        font-size: 3rem;
+        min-height: 80px;
+        margin-bottom: 10px;
+    }
+}
+
+/* Faculty Image - Compact Size */
+.faculty-image {
+    width: 100px;
+    height: 100px;
+    object-fit: cover;
+    border-radius: 15px;
+    box-shadow: 0 5px 18px rgba(0,0,0,0.12);
+    transition: all 0.4s ease;
+}
+
+@media (max-width: 768px) {
+    .faculty-image {
+        width: 80px;
+        height: 80px;
+    }
+}
+
+.faculty-card:hover .faculty-image {
+    transform: scale(1.05);
+    box-shadow: 0 12px 35px rgba(102, 126, 234, 0.3);
+}
+
+.faculty-icon-fallback {
+    font-size: 5rem;
+}
+
+.faculty-name {
+    font-size: 1.7rem;
+    font-weight: 800;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    text-align: center;
+    margin-bottom: 12px;
+    letter-spacing: 0.5px;
+}
+
+.faculty-code {
+    font-size: 1.05rem;
+    color: #666;
+    text-align: center;
+    margin-bottom: 18px;
+    font-weight: 600;
+}
+
+.faculty-description {
+    font-size: 1rem;
+    color: #666;
+    text-align: center;
+    line-height: 1.8;
+    margin-bottom: 25px;
+}
+
+.faculty-arrow {
+    position: absolute;
+    bottom: 25px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 1.8rem;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    opacity: 0;
+    transition: all 0.4s ease;
+}
+
+.faculty-card:hover .faculty-arrow {
+    opacity: 1;
+    bottom: 20px;
+}
+
+.no-faculties {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 60px 20px;
+    color: #999;
+    font-size: 1.2rem;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .page-header {
+        padding: 60px 15px;
+    }
+    
+    .page-title {
+        font-size: 2rem;
+    }
+    
+    .page-subtitle {
+        font-size: 1.1rem;
+    }
+    
+    .intro-box {
+        padding: 25px 20px;
+    }
+    
+    .intro-title {
+        font-size: 1.5rem;
+    }
+    
+    .intro-text {
+        font-size: 1rem;
+    }
+    
+    .section-title {
+        font-size: 1.8rem;
+    }
+    
+    .faculty-grid {
+        grid-template-columns: 1fr;
+        gap: 20px;
+    }
+    
+    .faculty-card {
+        padding: 30px 25px;
+    }
+    
+    .faculty-icon {
+        font-size: 4rem;
+        min-height: 120px;
+    }
+    
+    .faculty-image {
+        width: 120px;
+        height: 120px;
+    }
+    
+    .faculty-name {
+        font-size: 1.4rem;
+    }
+    
+    .faculty-code {
+        font-size: 0.95rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .page-header {
+        padding: 40px 12px;
+    }
+    
+    .page-title {
+        font-size: 1.6rem;
+    }
+    
+    .page-subtitle {
+        font-size: 1rem;
+    }
+    
+    .intro-box {
+        padding: 20px 15px;
+    }
+    
+    .intro-title {
+        font-size: 1.3rem;
+    }
+    
+    .intro-text {
+        font-size: 0.9rem;
+    }
+    
+    .section-title {
+        font-size: 1.5rem;
+    }
+    
+    .faculty-card {
+        padding: 25px 20px;
+    }
+    
+    .faculty-icon {
+        font-size: 3.5rem;
+        min-height: 100px;
+    }
+    
+    .faculty-image {
+        width: 100px;
+        height: 100px;
+    }
+    
+    .faculty-name {
+        font-size: 1.2rem;
+    }
+    
+    .faculty-code {
+        font-size: 0.85rem;
+    }
+    
+    .faculty-description {
+        font-size: 0.85rem;
+    }
+}
+
+/* Container */
+.container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 20px;
+}
+</style>
+{% endblock %}
+

@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}خطا - دانشکده هوش و مکاترونیک{% endblock %}
+
+{% block content %}
+<section class="error-section">
+    <div class="container">
+        <div class="error-box">
+            <div class="error-icon">⚠️</div>
+            <h1 class="error-title">خطا</h1>
+            <p class="error-message">{{ error }}</p>
+            <a href="{% url 'classes:home' %}" class="error-button">
+                بازگشت به صفحه اصلی
+            </a>
+        </div>
+    </div>
+</section>
+{% endblock %}
+

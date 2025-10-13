@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="سیستم مدیریت برنامه کلاسی دانشگاه آزاد اسلامی واحد کرج">
+    <meta name="keywords" content="دانشگاه، آزاد، کرج، کلاس، برنامه کلاسی، دانشکده">
+    <title>{% block title %}دانشگاه آزاد اسلامی واحد کرج{% endblock %}</title>
+    
+    <!-- Load static files -->
+    {% load static %}
+    
+    <!-- Main CSS -->
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <link rel="stylesheet" href="{% static 'css/global-improvements.css' %}">
+    
+    <!-- Additional CSS for specific pages -->
+    {% block extra_css %}{% endblock %}
+    
+    <!-- Google Fonts - Persian Fonts -->
+    <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    
+    <style>
+        /* Global Font Improvements */
+        :root {
+            --font-primary: 'Vazirmatn', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            --font-display: 'Vazirmatn', 'Georgia', serif;
+        }
+        
+        body {
+            font-family: var(--font-primary);
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            font-weight: 400;
+            letter-spacing: 0.01em;
+            overflow-x: hidden;
+        }
+        
+        h1, h2, h3, h4, h5, h6 {
+            font-family: var(--font-display);
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }
+        
+        .brand-link {
+            font-family: var(--font-display);
+            letter-spacing: 0.01em;
+        }
+        
+        /* Global Mobile Fixes */
+        @media (max-width: 768px) {
+            html {
+                font-size: 14px;
+            }
+            
+            .container {
+                padding: 0 15px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            html {
+                font-size: 13px;
+            }
+            
+            .container {
+                padding: 0 12px;
+            }
+        }
+        
+        /* Prevent horizontal scroll */
+        * {
+            max-width: 100%;
+        }
+        
+        img, video, iframe {
+            max-width: 100%;
+            height: auto;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <nav class="navbar">
+            <div class="container">
+                <!-- University Name -->
+                <div class="navbar-brand">
+                    <a href="{% url 'classes:home' %}" class="brand-link">
+                        دانشگاه آزاد اسلامی واحد کرج
+                    </a>
+                </div>
+                
+                <!-- Hamburger Menu Button (Mobile) -->
+                <button class="hamburger" id="hamburger" aria-label="منوی ناوبری">
+                    <span class="hamburger-line"></span>
+                    <span class="hamburger-line"></span>
+                    <span class="hamburger-line"></span>
+                </button>
+                
+                <!-- Navigation Menu -->
+                <ul class="nav-menu" id="navMenu">
+                    <li class="nav-item">
+                        <a href="{% url 'classes:home' %}" class="nav-link">
+                            خانه
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="{% url 'classes:faculty_selection' %}" class="nav-link">
+                            امور کلاس‌ها
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </nav>
+    </header>
+    
+    <!-- Main Content -->
+    <main class="main-content">
+        {% block content %}
+        <!-- Page content goes here -->
+        {% endblock %}
+    </main>
+    
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <p class="footer-text">
+                    در صورت بروز مشکل یا سوال با ایمیل زیر در ارتباط باشید
+                </p>
+                <a href="mailto:mokri23.amirali@gmail.com" class="footer-email">
+                    📧 mokri23.amirali@gmail.com
+                </a>
+                <p class="footer-copyright">
+                    © دانشگاه آزاد اسلامی واحد کرج | تمامی حقوق محفوظ است
+                </p>
+            </div>
+        </div>
+    </footer>
+    
+    <!-- Scroll to Top Button -->
+    <button class="scroll-top" id="scrollTop" onclick="scrollToTop()">
+        ⬆
+    </button>
+    
+    <!-- Main JavaScript -->
+    <script src="{% static 'js/script.js' %}"></script>
+    
+    <script>
+        // Scroll to Top Functionality
+        window.addEventListener('scroll', function() {
+            const scrollTop = document.getElementById('scrollTop');
+            if (scrollTop) {
+                if (window.pageYOffset > 300) {
+                    scrollTop.classList.add('visible');
+                } else {
+                    scrollTop.classList.remove('visible');
+                }
+            }
+        });
+        
+        function scrollToTop() {
+            window.scrollTo({
+                top: 0,
+                behavior: 'smooth'
+            });
+        }
+    </script>
+    
+    <!-- Additional JavaScript for specific pages -->
+    {% block extra_js %}{% endblock %}
+</body>
+</html>
+

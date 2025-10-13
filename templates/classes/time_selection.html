@@ -1,0 +1,434 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}انتخاب زمان - {{ day_name }} - {{ faculty.faculty_name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Enhanced Time Selection Page */
+.page-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 70px 20px;
+    box-shadow: 0 5px 25px rgba(102, 126, 234, 0.3);
+    position: relative;
+    overflow: hidden;
+}
+
+.page-header::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(255,255,255,0.15) 0%, transparent 70%);
+    animation: rotate 30s linear infinite;
+}
+
+@keyframes rotate {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.page-title {
+    font-size: 2.8rem;
+    font-weight: 900;
+    position: relative;
+    z-index: 1;
+    text-shadow: 0 3px 10px rgba(0,0,0,0.2);
+    color: white;
+}
+
+.page-subtitle {
+    font-size: 1.3rem;
+    position: relative;
+    z-index: 1;
+    font-weight: 500;
+    color: white;
+    opacity: 0.95;
+    margin-bottom: 20px;
+}
+
+.back-link {
+    position: relative;
+    z-index: 1;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255, 255, 255, 0.2);
+    padding: 10px 25px;
+    border-radius: 25px;
+    font-weight: 600;
+    font-size: 1.05rem;
+    color: white;
+    transition: all 0.3s ease;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    text-decoration: none;
+}
+
+.back-link:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: translateX(5px);
+}
+
+/* Time Selection Section */
+.time-selection {
+    padding: 60px 20px;
+    background: linear-gradient(to bottom, #f8f9fa 0%, #ffffff 100%);
+    min-height: 60vh;
+}
+
+.section-title {
+    text-align: center;
+    font-size: 2.5rem;
+    font-weight: 800;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 50px;
+}
+
+/* Credit Section */
+.credit-section {
+    margin-bottom: 60px;
+}
+
+.credit-title {
+    text-align: center;
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: #495057;
+    margin-bottom: 35px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+.credit-badge {
+    background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+    color: white;
+    padding: 10px 20px;
+    border-radius: 25px;
+    font-size: 1rem;
+    font-weight: 800;
+    box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
+}
+
+.credit-badge-high {
+    background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%);
+    box-shadow: 0 4px 15px rgba(33, 150, 243, 0.3);
+}
+
+/* Time Grid - Compact: 2 on desktop, 4 (2x2) on mobile */
+.time-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+@media (max-width: 768px) {
+    .time-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 15px;
+    }
+}
+
+/* Time Card - Compact Design */
+.time-card {
+    background: white;
+    padding: 25px 20px;
+    border-radius: 18px;
+    text-align: center;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    border: 2px solid #e9ecef;
+    text-decoration: none;
+    color: inherit;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+    min-height: 220px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+@media (max-width: 768px) {
+    .time-card {
+        padding: 20px 15px;
+        min-height: 180px;
+    }
+}
+
+.time-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 5px;
+    background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+    transform: scaleX(0);
+    transition: transform 0.4s ease;
+}
+
+.time-card:hover::before {
+    transform: scaleX(1);
+}
+
+.time-card:hover {
+    transform: translateY(-10px) scale(1.05);
+    box-shadow: 0 15px 40px rgba(102, 126, 234, 0.25);
+    border-color: #764ba2;
+}
+
+/* Time Icon - Compact Size */
+.time-icon {
+    font-size: 3rem;
+    margin-bottom: 15px;
+    filter: drop-shadow(0 3px 8px rgba(0,0,0,0.1));
+}
+
+@media (max-width: 768px) {
+    .time-icon {
+        font-size: 2.5rem;
+        margin-bottom: 10px;
+    }
+}
+
+/* Time Name - Compact Font */
+.time-name {
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: #1e3c72;
+    margin-bottom: 8px;
+}
+
+@media (max-width: 768px) {
+    .time-name {
+        font-size: 1rem;
+        margin-bottom: 6px;
+    }
+}
+
+.time-value {
+    font-size: 1.3rem;
+    color: #666;
+    font-weight: 600;
+    margin-bottom: 15px;
+}
+
+.time-arrow {
+    font-size: 1.8rem;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    opacity: 0;
+    transition: opacity 0.4s ease;
+}
+
+.time-card:hover .time-arrow {
+    opacity: 1;
+}
+
+.time-card-high {
+    border-color: #bbdefb;
+}
+
+.time-card-high::before {
+    background: linear-gradient(90deg, #2196F3 0%, #1976D2 100%);
+}
+
+.time-card-high:hover {
+    border-color: #2196F3;
+}
+
+@media (max-width: 768px) {
+    .page-header {
+        padding: 45px 15px;
+    }
+    
+    .page-title {
+        font-size: 2rem;
+    }
+    
+    .page-subtitle {
+        font-size: 1rem;
+    }
+    
+    .back-link {
+        font-size: 0.9rem;
+        padding: 8px 20px;
+    }
+    
+    .time-selection {
+        padding: 40px 15px;
+    }
+    
+    .section-title {
+        font-size: 2rem;
+        margin-bottom: 35px;
+    }
+    
+    .credit-section {
+        margin-bottom: 40px;
+    }
+    
+    .credit-title {
+        font-size: 1.5rem;
+        gap: 12px;
+    }
+    
+    .credit-badge {
+        font-size: 0.9rem;
+        padding: 8px 16px;
+    }
+    
+    .time-grid {
+        grid-template-columns: 1fr;
+        gap: 18px;
+    }
+    
+    .time-card {
+        padding: 30px 25px;
+    }
+    
+    .time-icon {
+        font-size: 3.5rem;
+    }
+    
+    .time-name {
+        font-size: 1.3rem;
+    }
+    
+    .time-value {
+        font-size: 1.1rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .page-header {
+        padding: 30px 12px;
+    }
+    
+    .page-title {
+        font-size: 1.6rem;
+    }
+    
+    .page-subtitle {
+        font-size: 0.9rem;
+    }
+    
+    .time-selection {
+        padding: 30px 12px;
+    }
+    
+    .section-title {
+        font-size: 1.6rem;
+    }
+    
+    .credit-title {
+        font-size: 1.2rem;
+        flex-direction: column;
+        gap: 8px;
+    }
+    
+    .credit-badge {
+        font-size: 0.85rem;
+        padding: 6px 14px;
+    }
+    
+    .time-card {
+        padding: 25px 20px;
+    }
+    
+    .time-icon {
+        font-size: 3rem;
+    }
+    
+    .time-name {
+        font-size: 1.1rem;
+    }
+    
+    .time-value {
+        font-size: 1rem;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Page Header -->
+<section class="page-header">
+    <div class="container">
+        <h1 class="page-title">⏰ انتخاب زمان کلاس</h1>
+        <p class="page-subtitle">{{ faculty.faculty_name }} - روز: {{ day_name }}</p>
+        <a href="{% url 'classes:class_affairs' faculty.id %}" class="back-link">
+            ← بازگشت به انتخاب روز
+        </a>
+    </div>
+</section>
+
+<!-- Time Selection Section -->
+<section class="time-selection">
+    <div class="container">
+        <h2 class="section-title">زمان مورد نظر را انتخاب کنید</h2>
+        
+        <!-- Time slots for 2 or less credit courses -->
+        <div class="credit-section">
+            <h3 class="credit-title">
+                <span class="credit-badge">≤ 2 واحد</span>
+                کلاس‌های دو واحد یا کمتر
+            </h3>
+            <div class="time-grid">
+                {% for time in times_2_or_less %}
+                <a href="{% url 'classes:floor_view' faculty.id selected_day time.key %}" class="time-card">
+                    <div class="time-icon">
+                        {% if '07:30' in time.key %}🌅
+                        {% elif '09:15' in time.key %}☀️
+                        {% elif '11:00' in time.key or '13:15' in time.key %}🌞
+                        {% elif '15:00' in time.key %}🌤️
+                        {% else %}🌙
+                        {% endif %}
+                    </div>
+                    <h3 class="time-name">{{ time.name }}</h3>
+                    <p class="time-value">{{ time.display }}</p>
+                    <div class="time-arrow">◀</div>
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <!-- Time slots for 3 or more credit courses -->
+        <div class="credit-section">
+            <h3 class="credit-title">
+                <span class="credit-badge credit-badge-high">≥ 3 واحد</span>
+                کلاس‌های سه واحد یا بیشتر
+            </h3>
+            <div class="time-grid">
+                {% for time in times_3_or_more %}
+                <a href="{% url 'classes:floor_view' faculty.id selected_day time.key %}" class="time-card time-card-high">
+                    <div class="time-icon">
+                        {% if '07:30' in time.key %}🌅
+                        {% elif '10:15' in time.key %}☀️
+                        {% elif '13:30' in time.key %}🌞
+                        {% else %}🌙
+                        {% endif %}
+                    </div>
+                    <h3 class="time-name">{{ time.name }}</h3>
+                    <p class="time-value">{{ time.display }}</p>
+                    <div class="time-arrow">◀</div>
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}
+

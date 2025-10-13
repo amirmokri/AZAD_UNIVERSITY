@@ -1,0 +1,505 @@
+"""
+Models for the class scheduling and management system.
+
+This module defines the database schema for:
+- Teachers: Faculty members who teach courses
+- Courses: Academic courses offered
+- Floors: Building floors
+- Rooms: Physical rooms/classrooms in the building
+- ClassSchedules: Schedule entries linking all components
+
+The models are designed for scalability and easy administration.
+All models include proper validation, error handling, and Persian language support.
+"""
+
+from django.db import models
+from django.core.exceptions import ValidationError
+from django.core.validators import MinValueValidator, MaxValueValidator
+
+
+class Faculty(models.Model):
+    """Faculty model representing university faculties/departments."""
+    
+    faculty_name = models.CharField(max_length=200, unique=True, verbose_name="نام دانشکده")
+    faculty_code = models.CharField(max_length=20, unique=True, verbose_name="کد دانشکده")
+    faculty_image = models.CharField(max_length=200, blank=True, null=True, verbose_name="نام فایل تصویر", 
+                                     help_text="نام فایل تصویر در پوشه static/images/ (مثال: AI.jpg)")
+    description = models.TextField(blank=True, null=True, verbose_name="توضیحات")
+    is_active = models.BooleanField(default=True, verbose_name="فعال")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="تاریخ ایجاد")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="تاریخ بروزرسانی")
+    
+    class Meta:
+        verbose_name = "دانشکده"
+        verbose_name_plural = "دانشکده‌ها"
+        ordering = ['faculty_name']
+    
+    def __str__(self):
+        return self.faculty_name
+    
+    def get_image_url(self):
+        """Get the full static URL for the faculty image"""
+        if self.faculty_image:
+            return f'images/{self.faculty_image}'
+        return None
+
+
+class Teacher(models.Model):
+    """Teacher model representing faculty members."""
+    
+    faculty = models.ForeignKey('Faculty', on_delete=models.CASCADE, related_name='teachers', null=True, blank=True, verbose_name="دانشکده")
+    full_name = models.CharField(max_length=200, verbose_name="نام کامل استاد")
+    email = models.EmailField(blank=True, null=True, verbose_name="ایمیل")
+    phone_number = models.CharField(max_length=20, blank=True, null=True, verbose_name="شماره تماس")
+    specialization = models.CharField(max_length=100, blank=True, null=True, verbose_name="تخصص")
+    is_active = models.BooleanField(default=True, verbose_name="فعال")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="تاریخ ایجاد")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="تاریخ بروزرسانی")
+    
+    class Meta:
+        verbose_name = "استاد"
+        verbose_name_plural = "اساتید"
+        ordering = ['faculty', 'full_name']
+    
+    def __str__(self):
+        if self.faculty:
+            return f"{self.full_name} ({self.faculty.faculty_name})"
+        return self.full_name
+
+
+class Course(models.Model):
+    """Course model representing academic courses."""
+    
+    faculty = models.ForeignKey('Faculty', on_delete=models.CASCADE, related_name='courses', null=True, blank=True, verbose_name="دانشکده")
+    course_code = models.CharField(max_length=20, unique=True, verbose_name="کد درس")
+    course_name = models.CharField(max_length=200, verbose_name="نام درس")
+    credit_hours = models.PositiveIntegerField(default=3, verbose_name="تعداد واحد")
+    description = models.TextField(blank=True, null=True, verbose_name="توضیحات")
+    is_active = models.BooleanField(default=True, verbose_name="فعال")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="تاریخ ایجاد")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="تاریخ بروزرسانی")
+    
+    class Meta:
+        verbose_name = "درس"
+        verbose_name_plural = "دروس"
+        ordering = ['course_code']
+    
+    def __str__(self):
+        return f"{self.course_code} - {self.course_name}"
+
+
+class Floor(models.Model):
+    """Floor model representing building floors."""
+    
+    faculty = models.ForeignKey('Faculty', on_delete=models.CASCADE, related_name='floors', null=True, blank=True, verbose_name="دانشکده")
+    floor_number = models.PositiveIntegerField(verbose_name="شماره طبقه")
+    floor_name = models.CharField(max_length=50, verbose_name="نام طبقه")
+    description = models.TextField(blank=True, null=True, verbose_name="توضیحات")
+    is_active = models.BooleanField(default=True, verbose_name="فعال")
+    
+    class Meta:
+        verbose_name = "طبقه"
+        verbose_name_plural = "طبقات"
+        ordering = ['faculty', 'floor_number']
+        unique_together = ['faculty', 'floor_number']
+    
+    def __str__(self):
+        if self.faculty:
+            return f"{self.floor_name} - {self.faculty.faculty_name}"
+        return self.floor_name
+
+
+class Room(models.Model):
+    """Room model representing physical rooms and classrooms."""
+    
+    ROOM_TYPE_CHOICES = [
+        ('classroom', 'کلاس درس'),
+        ('lab', 'آزمایشگاه'),
+        ('office', 'دفتر'),
+        ('study_hall', 'سالن مطالعه'),
+        ('other', 'سایر'),
+    ]
+    
+    POSITION_CHOICES = [
+        ('left', 'سمت چپ راهرو'),
+        ('right', 'سمت راست راهرو'),
+        ('center', 'وسط راهرو'),
+    ]
+    
+    faculty = models.ForeignKey('Faculty', on_delete=models.CASCADE, related_name='rooms', null=True, blank=True, verbose_name="دانشکده")
+    floor = models.ForeignKey(Floor, on_delete=models.CASCADE, related_name='rooms', verbose_name="طبقه")
+    room_number = models.CharField(max_length=20, verbose_name="شماره اتاق")
+    room_type = models.CharField(max_length=20, choices=ROOM_TYPE_CHOICES, default='classroom', verbose_name="نوع اتاق")
+    capacity = models.PositiveIntegerField(verbose_name="ظرفیت")
+    position = models.CharField(max_length=10, choices=POSITION_CHOICES, default='left', verbose_name="موقعیت")
+    is_active = models.BooleanField(default=True, verbose_name="فعال")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="تاریخ ایجاد")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="تاریخ بروزرسانی")
+    
+    class Meta:
+        verbose_name = "اتاق"
+        verbose_name_plural = "اتاق‌ها"
+        ordering = ['faculty', 'floor__floor_number', 'room_number']
+        unique_together = ['floor', 'room_number']
+    
+    def __str__(self):
+        if self.faculty:
+            return f"{self.floor.floor_name} - اتاق {self.room_number} ({self.faculty.faculty_name})"
+        return f"{self.floor.floor_name} - اتاق {self.room_number}"
+    
+    def save(self, *args, **kwargs):
+        # Auto-assign faculty from floor if not set
+        if not self.faculty and self.floor and self.floor.faculty:
+            self.faculty = self.floor.faculty
+        super().save(*args, **kwargs)
+
+
+class ClassCancellationVote(models.Model):
+    """
+    Model to track student votes for class cancellations.
+    
+    Students can vote that a class will NOT be held.
+    After 3+ votes, the class status changes for 24 hours.
+    """
+    
+    schedule = models.ForeignKey('ClassSchedule', on_delete=models.CASCADE, related_name='cancellation_votes', verbose_name="برنامه کلاسی")
+    voter_identifier = models.CharField(max_length=255, verbose_name="شناسه رای‌دهنده")
+    voted_at = models.DateTimeField(auto_now_add=True, verbose_name="زمان رای")
+    ip_address = models.GenericIPAddressField(null=True, blank=True, verbose_name="آدرس IP")
+    
+    class Meta:
+        verbose_name = "رای لغو کلاس"
+        verbose_name_plural = "رای‌های لغو کلاس"
+        unique_together = ['schedule', 'voter_identifier']
+        ordering = ['-voted_at']
+    
+    def __str__(self):
+        return f"رای لغو برای {self.schedule} در {self.voted_at}"
+
+
+class ClassConfirmationVote(models.Model):
+    """
+    Model to track student votes for class confirmations.
+    
+    Students can vote that a class WILL be held (opposite of cancellation).
+    After 3+ votes, the class status is confirmed for 24 hours.
+    """
+    
+    schedule = models.ForeignKey('ClassSchedule', on_delete=models.CASCADE, related_name='confirmation_votes', verbose_name="برنامه کلاسی")
+    voter_identifier = models.CharField(max_length=255, verbose_name="شناسه رای‌دهنده")
+    voted_at = models.DateTimeField(auto_now_add=True, verbose_name="زمان رای")
+    ip_address = models.GenericIPAddressField(null=True, blank=True, verbose_name="آدرس IP")
+    
+    class Meta:
+        verbose_name = "رای تأیید برگزاری کلاس"
+        verbose_name_plural = "رای‌های تأیید برگزاری کلاس"
+        unique_together = ['schedule', 'voter_identifier']
+        ordering = ['-voted_at']
+    
+    def __str__(self):
+        return f"رای تأیید برای {self.schedule} در {self.voted_at}"
+
+
+class ClassSchedule(models.Model):
+    """ClassSchedule model linking all components together."""
+    
+    DAY_CHOICES = [
+        ('saturday', 'شنبه'),
+        ('sunday', 'یکشنبه'),
+        ('monday', 'دوشنبه'),
+        ('tuesday', 'سه‌شنبه'),
+        ('wednesday', 'چهارشنبه'),
+        ('thursday', 'پنجشنبه'),
+        ('friday', 'جمعه'),
+    ]
+    
+    # Time slots for courses with 2 or less credit hours
+    TIME_CHOICES_2_OR_LESS = [
+        ('07:30-09:15', '7:30-9:15'),
+        ('09:15-11:00', '9:15-11:00'),
+        ('11:00-13:15', '11:00-13:15'),
+        ('13:15-15:00', '13:15-15:00'),
+        ('15:00-16:45', '15:00-16:45'),
+        ('16:45-18:00', '16:45-18:00'),
+    ]
+    
+    # Time slots for courses with 3 or more credit hours
+    TIME_CHOICES_3_OR_MORE = [
+        ('07:30-10:10', '7:30-10:10'),
+        ('10:15-13:30', '10:15-13:30'),
+        ('13:30-16:00', '13:30-16:00'),
+        ('16:00-18:30', '16:00-18:30'),
+    ]
+    
+    # Combined time choices for backward compatibility
+    TIME_CHOICES = TIME_CHOICES_2_OR_LESS + TIME_CHOICES_3_OR_MORE
+    
+    teacher = models.ForeignKey(Teacher, on_delete=models.SET_NULL, null=True, blank=True, related_name='schedules', verbose_name="استاد")
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='schedules', verbose_name="درس")
+    room = models.ForeignKey(Room, on_delete=models.CASCADE, related_name='schedules', verbose_name="اتاق")
+    day_of_week = models.CharField(max_length=15, choices=DAY_CHOICES, verbose_name="روز هفته")
+    time_slot = models.CharField(max_length=15, choices=TIME_CHOICES, verbose_name="زمان")
+    semester = models.CharField(max_length=20, blank=True, null=True, verbose_name="نیمسال")
+    academic_year = models.CharField(max_length=20, blank=True, null=True, verbose_name="سال تحصیلی")
+    notes = models.TextField(blank=True, null=True, verbose_name="یادداشت‌ها")
+    is_holding = models.BooleanField(
+        default=True,
+        verbose_name="کلاس برگزار می‌شود",
+        help_text="آیا این کلاس در حال حاضر برگزار می‌شود؟"
+    )
+    student_reported_not_holding = models.BooleanField(
+        default=False,
+        verbose_name="دانشجویان گزارش عدم برگزاری داده‌اند",
+        help_text="آیا دانشجویان گزارش کرده‌اند که کلاس برگزار نمی‌شود؟"
+    )
+    not_holding_reported_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="زمان گزارش عدم برگزاری",
+        help_text="زمانی که دانشجویان گزارش عدم برگزاری دادند"
+    )
+    student_reported_holding = models.BooleanField(
+        default=False,
+        verbose_name="دانشجویان تأیید برگزاری داده‌اند",
+        help_text="آیا دانشجویان تأیید کرده‌اند که کلاس برگزار می‌شود؟"
+    )
+    holding_confirmed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="زمان تأیید برگزاری",
+        help_text="زمانی که دانشجویان تأیید برگزاری دادند"
+    )
+    is_active = models.BooleanField(default=True, verbose_name="فعال")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="تاریخ ایجاد")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="تاریخ بروزرسانی")
+    
+    class Meta:
+        verbose_name = "برنامه کلاسی"
+        verbose_name_plural = "برنامه‌های کلاسی"
+        ordering = ['day_of_week', 'time_slot', 'room__floor__floor_number']
+        unique_together = ['room', 'day_of_week', 'time_slot']
+    
+    def __str__(self):
+        day_display = dict(self.DAY_CHOICES).get(self.day_of_week, '')
+        teacher_name = self.teacher.full_name if self.teacher else 'بدون استاد'
+        return f"{day_display} - {self.time_slot} - {self.course.course_name} - {teacher_name}"
+    
+    @classmethod
+    def get_time_choices_for_course(cls, course):
+        """
+        Get appropriate time choices based on course credit hours.
+        
+        Args:
+            course: Course instance
+            
+        Returns:
+            List of time choices appropriate for the course's credit hours
+        """
+        if course.credit_hours <= 2:
+            return cls.TIME_CHOICES_2_OR_LESS
+        else:
+            return cls.TIME_CHOICES_3_OR_MORE
+    
+    def get_available_time_choices(self):
+        """
+        Get available time choices for this schedule's course.
+        
+        Returns:
+            List of time choices appropriate for the course's credit hours
+        """
+        return self.get_time_choices_for_course(self.course)
+    
+    def clean(self):
+        """
+        Validate schedule before saving to prevent conflicts.
+        
+        Checks for:
+        1. Room conflicts (same room can't host overlapping classes)
+        2. Teacher conflicts (same teacher can't teach two classes at once)
+        3. Time slot validity based on course credit hours
+        
+        Raises:
+            ValidationError: If any conflict is detected with detailed information
+        """
+        super().clean()
+        
+        # Check for room conflicts - CRITICAL: prevent double-booking
+        if self.room and self.day_of_week and self.time_slot:
+            conflicts = ClassSchedule.objects.filter(
+                room=self.room,
+                day_of_week=self.day_of_week,
+                time_slot=self.time_slot,
+                is_active=True
+            ).exclude(pk=self.pk)
+            
+            if conflicts.exists():
+                conflict = conflicts.first()
+                teacher_name = conflict.teacher.full_name if conflict.teacher else 'نامشخص'
+                day_display = dict(self.DAY_CHOICES).get(self.day_of_week, self.day_of_week)
+                error_msg = (
+                    f'❌ تداخل زمانی! این اتاق در این بازه زمانی قبلاً رزرو شده است.\n\n'
+                    f'📚 درس: {conflict.course.course_name}\n'
+                    f'👨‍🏫 استاد: {teacher_name}\n'
+                    f'📅 روز: {day_display}\n'
+                    f'⏰ ساعت: {self.time_slot}\n\n'
+                    f'لطفاً اتاق، روز یا زمان دیگری انتخاب کنید.'
+                )
+                raise ValidationError({'room': error_msg})
+        
+        # Check for teacher conflicts
+        if self.teacher and self.day_of_week and self.time_slot:
+            teacher_conflicts = ClassSchedule.objects.filter(
+                teacher=self.teacher,
+                day_of_week=self.day_of_week,
+                time_slot=self.time_slot,
+                is_active=True
+            ).exclude(pk=self.pk)
+            
+            if teacher_conflicts.exists():
+                conflict = teacher_conflicts.first()
+                day_display = dict(self.DAY_CHOICES).get(self.day_of_week, self.day_of_week)
+                error_msg = (
+                    f'❌ تداخل زمانی! این استاد در این بازه زمانی کلاس دیگری دارد.\n\n'
+                    f'📚 درس: {conflict.course.course_name}\n'
+                    f'🚪 اتاق: {conflict.room.room_number}\n'
+                    f'📅 روز: {day_display}\n'
+                    f'⏰ ساعت: {self.time_slot}\n\n'
+                    f'لطفاً استاد، روز یا زمان دیگری انتخاب کنید.'
+                )
+                raise ValidationError({'teacher': error_msg})
+        
+        # Validate time slot matches course credit hours
+        if self.course and self.time_slot:
+            appropriate_times = self.get_available_time_choices()
+            appropriate_time_values = [t[0] for t in appropriate_times]
+            
+            if self.time_slot not in appropriate_time_values:
+                credit_hours = self.course.credit_hours if hasattr(self.course, 'credit_hours') and self.course.credit_hours else 0
+                if credit_hours and credit_hours <= 2:
+                    error_msg = (
+                        f'⚠️ بازه زمانی نامناسب!\n\n'
+                        f'درس انتخاب شده {credit_hours} واحدی است.\n'
+                        f'برای دروس ۲ واحد یا کمتر، باید از بازه‌های زمانی کوتاه‌تر استفاده کنید:\n'
+                        f'• 7:30-9:15\n'
+                        f'• 9:15-11:00\n'
+                        f'• 11:00-13:15\n'
+                        f'• 13:15-15:00\n'
+                        f'• 15:00-16:45\n'
+                        f'• 16:45-18:00'
+                    )
+                    raise ValidationError({'time_slot': error_msg})
+                elif credit_hours and credit_hours >= 3:
+                    error_msg = (
+                        f'⚠️ بازه زمانی نامناسب!\n\n'
+                        f'درس انتخاب شده {credit_hours} واحدی است.\n'
+                        f'برای دروس ۳ واحد یا بیشتر، باید از بازه‌های زمانی طولانی‌تر استفاده کنید:\n'
+                        f'• 7:30-10:10\n'
+                        f'• 10:15-13:30\n'
+                        f'• 13:30-16:00\n'
+                        f'• 16:00-18:30'
+                    )
+                    raise ValidationError({'time_slot': error_msg})
+    
+    def get_cancellation_vote_count(self):
+        """
+        Get current number of cancellation votes (NOT holding).
+        
+        Only counts votes from the last 24 hours.
+        
+        Returns:
+            int: Number of active cancellation votes
+        """
+        from django.utils import timezone
+        from datetime import timedelta
+        
+        # Only count votes from last 24 hours
+        time_threshold = timezone.now() - timedelta(hours=24)
+        return self.cancellation_votes.filter(voted_at__gte=time_threshold).count()
+    
+    def get_confirmation_vote_count(self):
+        """
+        Get current number of confirmation votes (WILL hold).
+        
+        Only counts votes from the last 24 hours.
+        
+        Returns:
+            int: Number of active confirmation votes
+        """
+        from django.utils import timezone
+        from datetime import timedelta
+        
+        # Only count votes from last 24 hours
+        time_threshold = timezone.now() - timedelta(hours=24)
+        return self.confirmation_votes.filter(voted_at__gte=time_threshold).count()
+    
+    def check_and_update_holding_status(self):
+        """
+        Check votes and update holding status based on student votes.
+        
+        Handles both cancellation and confirmation votes:
+        - 3+ cancellation votes → Mark as NOT holding for 24h
+        - 3+ confirmation votes → Mark as HOLDING for 24h
+        - After 24h, status resets to default
+        """
+        from django.utils import timezone
+        from datetime import timedelta
+        
+        cancel_vote_count = self.get_cancellation_vote_count()
+        confirm_vote_count = self.get_confirmation_vote_count()
+        
+        # Check cancellation votes (class NOT holding)
+        if cancel_vote_count >= 3 and not self.student_reported_not_holding:
+            self.student_reported_not_holding = True
+            self.not_holding_reported_at = timezone.now()
+            # Clear any previous confirmation status
+            self.student_reported_holding = False
+            self.holding_confirmed_at = None
+            self.save()
+        
+        # Check confirmation votes (class WILL hold)
+        if confirm_vote_count >= 3 and not self.student_reported_holding:
+            self.student_reported_holding = True
+            self.holding_confirmed_at = timezone.now()
+            # Clear any previous cancellation status
+            self.student_reported_not_holding = False
+            self.not_holding_reported_at = None
+            self.save()
+        
+        # Reset cancellation status if 24 hours passed
+        if self.student_reported_not_holding and self.not_holding_reported_at:
+            time_since_report = timezone.now() - self.not_holding_reported_at
+            if time_since_report > timedelta(hours=24):
+                self.student_reported_not_holding = False
+                self.not_holding_reported_at = None
+                # Clean old cancellation votes
+                old_votes = self.cancellation_votes.filter(
+                    voted_at__lt=timezone.now() - timedelta(hours=24)
+                )
+                old_votes.delete()
+                self.save()
+        
+        # Reset confirmation status if 24 hours passed
+        if self.student_reported_holding and self.holding_confirmed_at:
+            time_since_confirm = timezone.now() - self.holding_confirmed_at
+            if time_since_confirm > timedelta(hours=24):
+                self.student_reported_holding = False
+                self.holding_confirmed_at = None
+                # Clean old confirmation votes
+                old_votes = self.confirmation_votes.filter(
+                    voted_at__lt=timezone.now() - timedelta(hours=24)
+                )
+                old_votes.delete()
+                self.save()
+    
+    def is_actually_holding(self):
+        """Check if class is actually being held (considering both admin and student reports)."""
+        # Check if auto-reset is needed
+        self.check_and_update_holding_status()
+        
+        # Return false if either admin marked not holding OR students reported not holding
+        return self.is_holding and not self.student_reported_not_holding
+    
+    def save(self, *args, **kwargs):
+        """Override save to run validation."""
+        self.full_clean()
+        super().save(*args, **kwargs)

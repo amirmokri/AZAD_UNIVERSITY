@@ -1,0 +1,378 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}امور کلاس‌ها - {{ faculty.faculty_name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Enhanced Class Affairs Page */
+.page-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 80px 20px;
+    box-shadow: 0 5px 25px rgba(102, 126, 234, 0.3);
+    position: relative;
+    overflow: hidden;
+}
+
+.page-header::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(255,255,255,0.15) 0%, transparent 70%);
+    animation: rotate 30s linear infinite;
+}
+
+@keyframes rotate {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.page-title {
+    font-size: 3rem;
+    font-weight: 900;
+    position: relative;
+    z-index: 1;
+    text-shadow: 0 3px 10px rgba(0,0,0,0.2);
+}
+
+.page-subtitle {
+    font-size: 1.4rem;
+    position: relative;
+    z-index: 1;
+    font-weight: 500;
+}
+
+/* Enhanced Day Cards */
+.day-selection {
+    padding: 60px 20px;
+    background: linear-gradient(to bottom, #f8f9fa 0%, #ffffff 100%);
+}
+
+.section-title {
+    text-align: center;
+    font-size: 2.5rem;
+    font-weight: 800;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 50px;
+}
+
+/* Day Grid - Compact: 2 on desktop, 4 (2x2) on mobile */
+.day-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+@media (max-width: 768px) {
+    .day-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 15px;
+    }
+}
+
+/* Day Card - Compact Design */
+.day-card {
+    background: white;
+    padding: 25px 20px;
+    border-radius: 18px;
+    text-align: center;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    border: 2px solid #e9ecef;
+    text-decoration: none;
+    color: inherit;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+    min-height: 200px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+@media (max-width: 768px) {
+    .day-card {
+        padding: 20px 15px;
+        min-height: 160px;
+    }
+}
+
+.day-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 5px;
+    background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+    transform: scaleX(0);
+    transition: transform 0.4s ease;
+}
+
+.day-card:hover::before {
+    transform: scaleX(1);
+}
+
+.day-card:hover {
+    transform: translateY(-10px) scale(1.05);
+    box-shadow: 0 15px 40px rgba(102, 126, 234, 0.25);
+    border-color: #764ba2;
+}
+
+/* Day Icon - Compact Size */
+.day-icon {
+    font-size: 3rem;
+    margin-bottom: 15px;
+    filter: drop-shadow(0 3px 6px rgba(0,0,0,0.1));
+}
+
+@media (max-width: 768px) {
+    .day-icon {
+        font-size: 2.5rem;
+        margin-bottom: 10px;
+    }
+}
+
+/* Day Name - Compact Font */
+.day-name {
+    font-size: 1.3rem;
+    font-weight: 800;
+    color: #1e3c72;
+    margin-bottom: 10px;
+}
+
+@media (max-width: 768px) {
+    .day-name {
+        font-size: 1.1rem;
+        margin-bottom: 8px;
+    }
+}
+
+.day-arrow {
+    font-size: 1.8rem;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    opacity: 0;
+    transition: opacity 0.4s ease;
+}
+
+.day-card:hover .day-arrow {
+    opacity: 1;
+}
+
+/* Intro Box Enhancement */
+.intro-section {
+    padding: 50px 20px;
+}
+
+.intro-box {
+    background: white;
+    padding: 40px;
+    border-radius: 25px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.1);
+    max-width: 900px;
+    margin: 0 auto;
+    border-right: 6px solid #764ba2;
+}
+
+.intro-title {
+    font-size: 2rem;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 25px;
+    font-weight: 800;
+}
+
+.intro-list {
+    list-style: none;
+    padding: 0;
+}
+
+.intro-list li {
+    padding: 15px 0;
+    padding-right: 40px;
+    position: relative;
+    font-size: 1.15rem;
+    line-height: 1.8;
+    color: #495057;
+    font-weight: 500;
+}
+
+.intro-list li::before {
+    content: "✓";
+    position: absolute;
+    right: 0;
+    color: #4CAF50;
+    font-weight: bold;
+    font-size: 1.5rem;
+}
+
+@media (max-width: 768px) {
+    .page-header {
+        padding: 50px 15px;
+    }
+    
+    .page-title {
+        font-size: 2.2rem;
+    }
+    
+    .page-subtitle {
+        font-size: 1.1rem;
+    }
+    
+    .intro-section {
+        padding: 30px 15px;
+    }
+    
+    .intro-box {
+        padding: 25px 20px;
+    }
+    
+    .intro-title {
+        font-size: 1.6rem;
+    }
+    
+    .intro-list li {
+        font-size: 1rem;
+        padding: 12px 0;
+        padding-right: 35px;
+    }
+    
+    .intro-list li::before {
+        font-size: 1.3rem;
+    }
+    
+    .day-selection {
+        padding: 40px 15px;
+    }
+    
+    .section-title {
+        font-size: 2rem;
+    }
+    
+    .day-grid {
+        grid-template-columns: 1fr;
+        gap: 18px;
+    }
+    
+    .day-card {
+        padding: 25px 20px;
+    }
+    
+    .day-icon {
+        font-size: 3.5rem;
+    }
+    
+    .day-name {
+        font-size: 1.4rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .page-header {
+        padding: 35px 12px;
+    }
+    
+    .page-title {
+        font-size: 1.8rem;
+    }
+    
+    .page-subtitle {
+        font-size: 1rem;
+    }
+    
+    .intro-box {
+        padding: 20px 15px;
+    }
+    
+    .intro-title {
+        font-size: 1.4rem;
+    }
+    
+    .intro-list li {
+        font-size: 0.9rem;
+        padding: 10px 0;
+        padding-right: 30px;
+    }
+    
+    .section-title {
+        font-size: 1.6rem;
+    }
+    
+    .day-card {
+        padding: 20px 15px;
+    }
+    
+    .day-icon {
+        font-size: 3rem;
+    }
+    
+    .day-name {
+        font-size: 1.2rem;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Page Header -->
+<section class="page-header">
+    <div class="container">
+        <h1 class="page-title">📚 امور کلاس‌ها</h1>
+        <p class="page-subtitle">{{ faculty.faculty_name }} - برنامه کلاسی هفتگی</p>
+    </div>
+</section>
+
+<!-- Introduction Section -->
+<section class="intro-section">
+    <div class="container">
+        <div class="intro-box">
+            <h2 class="intro-title">📋 راهنمای استفاده</h2>
+            <ul class="intro-list">
+                <li>روز مورد نظر خود را از بین روزهای هفته انتخاب کنید</li>
+                <li>سپس زمان کلاس را مشخص نمایید</li>
+                <li>برنامه کلاسی تمامی طبقات به تفکیک نمایش داده می‌شود</li>
+                <li>اطلاعات شامل نام استاد، درس، و ظرفیت کلاس می‌باشد</li>
+            </ul>
+        </div>
+    </div>
+</section>
+
+<!-- Day Selection Section -->
+<section class="day-selection">
+    <div class="container">
+        <h2 class="section-title">انتخاب روز هفته</h2>
+        <div class="day-grid">
+            {% for day in days %}
+            <a href="{% url 'classes:time_selection' faculty.id day.key %}" class="day-card">
+                <div class="day-icon">
+                    {% if day.key == 'saturday' %}🌅
+                    {% elif day.key == 'sunday' %}☀️
+                    {% elif day.key == 'monday' %}🌤️
+                    {% elif day.key == 'tuesday' %}⛅
+                    {% elif day.key == 'wednesday' %}🌞
+                    {% elif day.key == 'thursday' %}🌙
+                    {% else %}🌟
+                    {% endif %}
+                </div>
+                <h3 class="day-name">{{ day.name }}</h3>
+                <div class="day-arrow">◀</div>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+{% endblock %}
+

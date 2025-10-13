@@ -1,0 +1,1482 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}صفحه اصلی - {{ page_title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Home Page Styles - Enhanced & Beautiful */
+.hero-section {
+    height: 100vh;
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.92) 0%, rgba(118, 75, 162, 0.92) 50%, rgba(240, 147, 251, 0.90) 100%), 
+                url('{% static "images/university-bg.jpg" %}');
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    color: white;
+    position: relative;
+    overflow: hidden;
+}
+
+/* Fallback if image doesn't exist */
+.hero-section::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+    z-index: -2;
+}
+
+@media (max-width: 768px) {
+    .hero-section {
+        background-attachment: scroll;
+    }
+}
+
+.hero-section::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+    animation: rotate 40s linear infinite;
+}
+
+@keyframes rotate {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.hero-content {
+    position: relative;
+    z-index: 1;
+    animation: fadeInScale 1.2s ease-out;
+}
+
+@keyframes fadeInScale {
+    from {
+        opacity: 0;
+        transform: scale(0.9);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.hero-content h1 {
+    font-size: 4rem;
+    font-weight: 900;
+    margin-bottom: 25px;
+    text-shadow: 0 4px 15px rgba(0,0,0,0.5);
+    line-height: 1.2;
+    letter-spacing: 1px;
+}
+
+@media (max-width: 768px) {
+    .hero-content h1 {
+        font-size: 2.2rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .hero-content h1 {
+        font-size: 1.8rem;
+    }
+}
+
+.hero-content p {
+    font-size: 1.5rem;
+    margin-bottom: 35px;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.4);
+    opacity: 0.95;
+    font-weight: 500;
+    line-height: 1.6;
+}
+
+@media (max-width: 768px) {
+    .hero-content p {
+        font-size: 1.1rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .hero-content p {
+        font-size: 1rem;
+    }
+}
+
+.quick-search-container {
+    max-width: 600px;
+    margin: 30px auto;
+    padding: 0 20px;
+    position: relative;
+}
+
+@media (max-width: 768px) {
+    .quick-search-container {
+        max-width: 90%;
+        padding: 0 10px;
+    }
+}
+
+@media (max-width: 480px) {
+    .quick-search-container {
+        max-width: 95%;
+        padding: 0 5px;
+    }
+}
+
+.search-box {
+    display: flex;
+    gap: 10px;
+    background: white;
+    padding: 8px;
+    border-radius: 50px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+    transition: all 0.3s ease;
+}
+
+@media (max-width: 768px) {
+    .search-box {
+        flex-direction: column;
+        border-radius: 20px;
+        gap: 8px;
+    }
+}
+
+@media (max-width: 480px) {
+    .search-box {
+        padding: 6px;
+    }
+}
+
+.search-box:focus-within {
+    box-shadow: 0 15px 50px rgba(30, 60, 114, 0.4);
+    transform: translateY(-2px);
+}
+
+.search-input {
+    flex: 1;
+    border: none;
+    padding: 15px 20px;
+    font-size: 1rem;
+    border-radius: 50px;
+    outline: none;
+    font-family: 'Vazirmatn', sans-serif;
+    background: transparent;
+}
+
+@media (max-width: 768px) {
+    .search-input {
+        border-radius: 15px;
+        padding: 12px 15px;
+        font-size: 0.95rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .search-input {
+        padding: 10px 12px;
+        font-size: 0.9rem;
+    }
+}
+
+.search-input::placeholder {
+    color: #999;
+}
+
+.search-button {
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+    color: white;
+    border: none;
+    padding: 15px 30px;
+    border-radius: 50px;
+    font-weight: 600;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-family: 'Vazirmatn', sans-serif;
+    white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+    .search-button {
+        border-radius: 15px;
+        padding: 12px 25px;
+        width: 100%;
+    }
+}
+
+@media (max-width: 480px) {
+    .search-button {
+        padding: 10px 20px;
+        font-size: 0.9rem;
+    }
+}
+
+.search-button:hover {
+    transform: scale(1.05);
+    box-shadow: 0 5px 20px rgba(30, 60, 114, 0.4);
+}
+
+.search-hint {
+    text-align: center;
+    font-size: 0.9rem;
+    margin-top: 15px;
+    color: white;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+    opacity: 0.8;
+}
+
+.suggestions-dropdown {
+    display: none;
+    position: absolute;
+    background: white;
+    width: calc(100% - 40px);
+    max-height: 300px;
+    overflow-y: auto;
+    border-radius: 15px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+    margin-top: 10px;
+    z-index: 100;
+}
+
+.suggestions-dropdown.show {
+    display: block;
+}
+
+.suggestion-item {
+    padding: 15px 20px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border-bottom: 1px solid #f0f0f0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.suggestion-item:last-child {
+    border-bottom: none;
+}
+
+.suggestion-item:hover {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+}
+
+.suggestion-icon {
+    font-size: 1.2rem;
+}
+
+.suggestion-text {
+    flex: 1;
+    color: #495057;
+    font-weight: 600;
+}
+
+.suggestion-meta {
+    font-size: 0.85rem;
+    color: #6c757d;
+}
+
+.hero-buttons {
+    display: flex;
+    gap: 20px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-top: 30px;
+}
+
+@media (max-width: 768px) {
+    .hero-buttons {
+        flex-direction: column;
+        align-items: center;
+        gap: 15px;
+    }
+}
+
+@media (max-width: 480px) {
+    .hero-buttons {
+        gap: 12px;
+    }
+}
+
+.cta-button {
+    display: inline-block;
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+    color: white;
+    padding: 15px 30px;
+    border-radius: 50px;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 1.1rem;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(30, 60, 114, 0.3);
+}
+
+.cta-button:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(30, 60, 114, 0.4);
+    color: white;
+    text-decoration: none;
+}
+
+.cta-button.secondary {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+}
+
+.cta-button.secondary:hover {
+    box-shadow: 0 8px 25px rgba(40, 167, 69, 0.4);
+}
+
+@media (max-width: 768px) {
+    .cta-button {
+        padding: 12px 30px;
+        font-size: 1rem;
+        width: auto;
+        min-width: 250px;
+    }
+}
+
+@media (max-width: 480px) {
+    .cta-button {
+        padding: 10px 25px;
+        font-size: 0.95rem;
+        min-width: 200px;
+    }
+}
+
+.features-section {
+    padding: 80px 20px;
+    background: #f8f9fa;
+}
+
+@media (max-width: 768px) {
+    .features-section {
+        padding: 50px 15px;
+    }
+}
+
+@media (max-width: 480px) {
+    .features-section {
+        padding: 35px 12px;
+    }
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.section-title {
+    text-align: center;
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: #1e3c72;
+    margin-bottom: 20px;
+}
+
+.section-subtitle {
+    text-align: center;
+    font-size: 1.2rem;
+    color: #6c757d;
+    margin-bottom: 60px;
+    max-width: 600px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.features-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 40px;
+    margin-bottom: 60px;
+}
+
+.feature-card {
+    background: white;
+    padding: 40px 30px;
+    border-radius: 20px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+    text-align: center;
+    transition: all 0.3s ease;
+    border: 1px solid #e9ecef;
+}
+
+.feature-card:hover {
+    transform: translateY(-10px);
+    box-shadow: 0 20px 50px rgba(0,0,0,0.15);
+}
+
+.feature-icon {
+    width: 80px;
+    height: 80px;
+    margin: 0 auto 25px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    color: white;
+}
+
+.feature-card.classes .feature-icon {
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+}
+
+.feature-card.teachers .feature-icon {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+}
+
+.feature-card.api .feature-icon {
+    background: linear-gradient(135deg, #007bff 0%, #6610f2 100%);
+}
+
+.feature-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #1e3c72;
+    margin-bottom: 15px;
+}
+
+.feature-description {
+    font-size: 1rem;
+    color: #6c757d;
+    line-height: 1.6;
+    margin-bottom: 25px;
+}
+
+.feature-button {
+    display: inline-block;
+    background: transparent;
+    color: #1e3c72;
+    border: 2px solid #1e3c72;
+    padding: 12px 25px;
+    border-radius: 25px;
+    text-decoration: none;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.feature-button:hover {
+    background: #1e3c72;
+    color: white;
+    text-decoration: none;
+}
+
+.feature-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-top: 20px;
+}
+
+.feature-info-btn {
+    background: transparent;
+    color: #1e3c72;
+    border: 2px solid #1e3c72;
+    padding: 8px 16px;
+    border-radius: 25px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 0.9rem;
+}
+
+.feature-info-btn:hover {
+    background: #1e3c72;
+    color: white;
+}
+
+/* Feature Info Modal */
+.feature-modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.5);
+    backdrop-filter: blur(5px);
+}
+
+.feature-modal-content {
+    background-color: white;
+    margin: 5% auto;
+    padding: 30px;
+    border-radius: 20px;
+    width: 90%;
+    max-width: 600px;
+    max-height: 80vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    position: relative;
+    animation: modalSlideIn 0.3s ease-out;
+}
+
+@keyframes modalSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-50px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.feature-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 25px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid #f8f9fa;
+}
+
+.feature-modal-title {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: #1e3c72;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.feature-modal-icon {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    color: white;
+}
+
+.feature-modal-icon.classes {
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+}
+
+.feature-modal-icon.teachers {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+}
+
+.feature-modal-icon.api {
+    background: linear-gradient(135deg, #007bff 0%, #6610f2 100%);
+}
+
+.close-modal {
+    background: none;
+    border: none;
+    font-size: 2rem;
+    color: #6c757d;
+    cursor: pointer;
+    padding: 5px;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+}
+
+.close-modal:hover {
+    background: #f8f9fa;
+    color: #dc3545;
+}
+
+.feature-modal-body {
+    line-height: 1.8;
+    color: #495057;
+}
+
+.feature-modal-body h4 {
+    color: #1e3c72;
+    font-size: 1.2rem;
+    margin: 25px 0 15px 0;
+    font-weight: 700;
+}
+
+.feature-modal-body ul {
+    margin: 15px 0;
+    padding-right: 20px;
+}
+
+.feature-modal-body li {
+    margin-bottom: 8px;
+    position: relative;
+}
+
+.feature-modal-body li::before {
+    content: "✓";
+    position: absolute;
+    right: -20px;
+    color: #28a745;
+    font-weight: bold;
+}
+
+.feature-modal-body p {
+    margin-bottom: 15px;
+}
+
+.feature-modal-footer {
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 2px solid #f8f9fa;
+    text-align: center;
+}
+
+.feature-modal-btn {
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+    color: white;
+    border: none;
+    padding: 12px 30px;
+    border-radius: 25px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    display: inline-block;
+    margin: 0 10px;
+}
+
+.feature-modal-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(30, 60, 114, 0.3);
+    color: white;
+    text-decoration: none;
+}
+
+.feature-modal-btn.secondary {
+    background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+}
+
+.feature-modal-btn.secondary:hover {
+    box-shadow: 0 8px 25px rgba(108, 117, 125, 0.3);
+}
+
+.stats-section {
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+    color: white;
+    padding: 80px 20px;
+    text-align: center;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 40px;
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.stat-item {
+    text-align: center;
+}
+
+.stat-number {
+    font-size: 3rem;
+    font-weight: 700;
+    margin-bottom: 10px;
+    display: block;
+}
+
+.stat-label {
+    font-size: 1.1rem;
+    opacity: 0.9;
+}
+
+.cta-section {
+    padding: 80px 20px;
+    background: white;
+    text-align: center;
+}
+
+.cta-content h2 {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: #1e3c72;
+    margin-bottom: 20px;
+}
+
+.cta-content p {
+    font-size: 1.2rem;
+    color: #6c757d;
+    margin-bottom: 40px;
+    max-width: 600px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.cta-buttons {
+    display: flex;
+    gap: 20px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+/* Day Selection Modal */
+.day-selection-modal {
+    display: none;
+    position: fixed;
+    z-index: 2000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.6);
+    backdrop-filter: blur(8px);
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.day-selection-content {
+    background: white;
+    margin: 10% auto;
+    padding: 40px;
+    border-radius: 25px;
+    width: 90%;
+    max-width: 600px;
+    box-shadow: 0 20px 80px rgba(0,0,0,0.3);
+    animation: slideUp 0.4s ease;
+    position: relative;
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(50px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.day-selection-header {
+    text-align: center;
+    margin-bottom: 30px;
+    padding-bottom: 20px;
+    border-bottom: 3px solid #f0f0f0;
+}
+
+.day-selection-title {
+    font-size: 1.8rem;
+    color: #1e3c72;
+    margin-bottom: 10px;
+    font-weight: 700;
+}
+
+.teacher-name-display {
+    font-size: 1.2rem;
+    color: #28a745;
+    font-weight: 600;
+}
+
+.close-day-modal {
+    position: absolute;
+    top: 15px;
+    left: 15px;
+    background: none;
+    border: none;
+    font-size: 2.5rem;
+    color: #999;
+    cursor: pointer;
+    width: 45px;
+    height: 45px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: all 0.3s ease;
+}
+
+.close-day-modal:hover {
+    background: #f0f0f0;
+    color: #dc3545;
+    transform: rotate(90deg);
+}
+
+.days-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 15px;
+    margin-bottom: 25px;
+}
+
+.day-option {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border: 2px solid #dee2e6;
+    padding: 20px;
+    border-radius: 15px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-weight: 600;
+    font-size: 1.1rem;
+    color: #495057;
+}
+
+.day-option:hover {
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+    border-color: #1e3c72;
+    color: white;
+    transform: translateY(-5px);
+    box-shadow: 0 10px 30px rgba(30, 60, 114, 0.3);
+}
+
+.day-option.selected {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    border-color: #28a745;
+    color: white;
+    transform: scale(1.05);
+    box-shadow: 0 10px 30px rgba(40, 167, 69, 0.4);
+}
+
+.day-selection-actions {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+}
+
+.day-action-btn {
+    padding: 15px 40px;
+    border-radius: 50px;
+    font-weight: 600;
+    font-size: 1.1rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border: none;
+    font-family: 'Vazirmatn', sans-serif;
+}
+
+.confirm-day-btn {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    color: white;
+}
+
+.confirm-day-btn:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 30px rgba(40, 167, 69, 0.4);
+}
+
+.confirm-day-btn:disabled {
+    background: #6c757d;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.cancel-day-btn {
+    background: #f8f9fa;
+    color: #495057;
+    border: 2px solid #dee2e6;
+}
+
+.cancel-day-btn:hover {
+    background: #e9ecef;
+    border-color: #adb5bd;
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+    .hero-content h1 {
+        font-size: 2.5rem;
+    }
+    
+    .hero-content p {
+        font-size: 1.1rem;
+    }
+    
+    .quick-search-container {
+        margin: 20px auto;
+    }
+    
+    .search-box {
+        flex-direction: column;
+        border-radius: 20px;
+        padding: 10px;
+    }
+    
+    .suggestions-dropdown {
+        width: calc(100% - 20px);
+        margin: 10px 10px 0 10px;
+    }
+    
+    .search-input {
+        padding: 12px 15px;
+        font-size: 0.9rem;
+        border-radius: 15px;
+    }
+    
+    .search-button {
+        padding: 12px 20px;
+        font-size: 0.95rem;
+        border-radius: 15px;
+    }
+    
+    .search-hint {
+        font-size: 0.8rem;
+    }
+    
+    .hero-buttons {
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .cta-button {
+        padding: 12px 25px;
+        font-size: 1rem;
+    }
+    
+    .day-selection-content {
+        margin: 20% auto;
+        padding: 25px;
+        border-radius: 20px;
+    }
+    
+    .day-selection-title {
+        font-size: 1.5rem;
+    }
+    
+    .teacher-name-display {
+        font-size: 1rem;
+    }
+    
+    .days-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+    }
+    
+    .day-option {
+        padding: 15px 10px;
+        font-size: 0.95rem;
+    }
+    
+    .day-selection-actions {
+        flex-direction: column;
+    }
+    
+    .day-action-btn {
+        width: 100%;
+        padding: 12px 30px;
+        font-size: 1rem;
+    }
+    
+    .features-section {
+        padding: 60px 20px;
+    }
+    
+    .section-title {
+        font-size: 2rem;
+    }
+    
+    .features-grid {
+        grid-template-columns: 1fr;
+        gap: 30px;
+    }
+    
+    .feature-card {
+        padding: 30px 20px;
+    }
+    
+    .stats-section {
+        padding: 60px 20px;
+    }
+    
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 30px;
+    }
+    
+    .stat-number {
+        font-size: 2.5rem;
+    }
+    
+    .cta-section {
+        padding: 60px 20px;
+    }
+    
+    .cta-content h2 {
+        font-size: 2rem;
+    }
+    
+    .cta-buttons {
+        flex-direction: column;
+        align-items: center;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Hero Section -->
+<div class="hero-section">
+    <div class="hero-content">
+        <h1>دانشگاه آزاد اسلامی واحد کرج</h1>
+        <p>سیستم جامع مدیریت و نمایش برنامه کلاسی تمامی دانشکده‌ها</p>
+        <p>(فعلا فقط دانشکده هوش و مکاترونیک میباشد)</p>
+        
+        <!-- Quick Search Box -->
+        <div class="quick-search-container">
+            <div class="search-box">
+                <input 
+                    type="text" 
+                    id="teacherSearch" 
+                    class="search-input" 
+                    placeholder="🔍 جستجوی سریع استاد... (نام استاد را وارد کنید)"
+                    autocomplete="off"
+                    oninput="searchTeachers()"
+                    onkeypress="if(event.key === 'Enter') { event.preventDefault(); initiateTeacherSearch(); }"
+                >
+                <button class="search-button" onclick="initiateTeacherSearch()">
+                    جستجو
+                </button>
+            </div>
+            <div id="teacherSuggestions" class="suggestions-dropdown"></div>
+            <p class="search-hint">💡 نام استاد را وارد کنید تا برنامه کلاسی ایشان را مشاهده کنید</p>
+        </div>
+        
+        <div class="hero-buttons">
+            <a href="{% url 'classes:faculty_selection' %}" class="cta-button">
+                📚 مشاهده برنامه کلاسی
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Features Section -->
+<div class="features-section">
+    <div class="container">
+        <h2 class="section-title">ویژگی‌های سیستم</h2>
+        <p class="section-subtitle">
+            سیستم جامع نمایش و مدیریت برنامه کلاس‌ها با قابلیت‌های پیشرفته
+        </p>
+        
+        <div class="features-grid">
+            <div class="feature-card classes">
+                <div class="feature-icon">📚</div>
+                <h3 class="feature-title">مدیریت کلاس‌ها</h3>
+                <p class="feature-description">
+                    مشاهده برنامه کلاسی روزانه، جستجوی کلاس‌ها بر اساس استاد و درس، 
+                    و دسترسی آسان به اطلاعات کلاس‌ها در هر طبقه
+                </p>
+                <div class="feature-actions">
+                    <a href="{% url 'classes:faculty_selection' %}" class="feature-button">
+                        مشاهده کلاس‌ها
+                    </a>
+                    <button class="feature-info-btn" onclick="showFeatureInfo('classes')">
+                        اطلاعات بیشتر
+                    </button>
+                </div>
+            </div>
+            
+            <div class="feature-card teachers">
+                <div class="feature-icon">👨‍🏫</div>
+                <h3 class="feature-title">اساتید دانشکده</h3>
+                <p class="feature-description">
+                    مشاهده لیست اساتید، تخصص‌ها و اطلاعات تماس
+                    برای ارتباط بهتر با اساتید محترم
+                </p>
+                <div class="feature-actions">
+                    <a href="{% url 'classes:faculty_selection' %}" class="feature-button">
+                        مشاهده اساتید
+                    </a>
+                    <button class="feature-info-btn" onclick="showFeatureInfo('teachers')">
+                        اطلاعات بیشتر
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+<!-- CTA Section -->
+<div class="cta-section">
+    <div class="container">
+        <div class="cta-content">
+            <h2>آماده شروع هستید؟</h2>
+            <p>
+                همین حالا برنامه کلاسی خود را مشاهده کنید و از قابلیت‌های 
+                سیستم مدیریت کلاس‌ها استفاده کنید
+            </p>
+            <div class="cta-buttons">
+                <a href="{% url 'classes:faculty_selection' %}" class="cta-button">
+                    📚 مشاهده برنامه کلاسی
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Day Selection Modal -->
+<div id="daySelectionModal" class="day-selection-modal">
+    <div class="day-selection-content">
+        <button class="close-day-modal" onclick="closeDayModal()">&times;</button>
+        <div class="day-selection-header">
+            <h2 class="day-selection-title">انتخاب روز هفته</h2>
+            <p class="teacher-name-display" id="selectedTeacherName"></p>
+        </div>
+        <div class="days-grid" id="daysGrid">
+            <div class="day-option" data-day="saturday" onclick="selectDay('saturday')">شنبه</div>
+            <div class="day-option" data-day="sunday" onclick="selectDay('sunday')">یکشنبه</div>
+            <div class="day-option" data-day="monday" onclick="selectDay('monday')">دوشنبه</div>
+            <div class="day-option" data-day="tuesday" onclick="selectDay('tuesday')">سه‌شنبه</div>
+            <div class="day-option" data-day="wednesday" onclick="selectDay('wednesday')">چهارشنبه</div>
+            <div class="day-option" data-day="thursday" onclick="selectDay('thursday')">پنجشنبه</div>
+            <div class="day-option" data-day="friday" onclick="selectDay('friday')">جمعه</div>
+        </div>
+        <div class="day-selection-actions">
+            <button class="day-action-btn confirm-day-btn" id="confirmDayBtn" onclick="confirmDaySelection()" disabled>
+                تایید و نمایش برنامه
+            </button>
+            <button class="day-action-btn cancel-day-btn" onclick="closeDayModal()">
+                انصراف
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Feature Info Modal -->
+<div id="featureModal" class="feature-modal">
+    <div class="feature-modal-content">
+        <div class="feature-modal-header">
+            <h2 class="feature-modal-title">
+                <div class="feature-modal-icon" id="modalIcon">📚</div>
+                <span id="modalTitle">عنوان ویژگی</span>
+            </h2>
+            <button class="close-modal" onclick="closeFeatureModal()">&times;</button>
+        </div>
+        <div class="feature-modal-body" id="modalBody">
+            <!-- Content will be populated by JavaScript -->
+        </div>
+        <div class="feature-modal-footer">
+            <a href="#" class="feature-modal-btn" id="modalActionBtn">شروع کنید</a>
+            <button class="feature-modal-btn secondary" onclick="closeFeatureModal()">بستن</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Teacher search functionality
+    let selectedDay = null;
+    let searchedTeacherName = '';
+    let searchTimeout = null;
+    let allTeachers = [];
+    
+    // Fetch teachers from API on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        const searchInput = document.getElementById('teacherSearch');
+        if (searchInput) {
+            searchInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    initiateTeacherSearch();
+                }
+            });
+            
+            // Close suggestions when clicking outside
+            document.addEventListener('click', function(e) {
+                if (!searchInput.contains(e.target) && !document.getElementById('teacherSuggestions').contains(e.target)) {
+                    hideSuggestions();
+                }
+            });
+        }
+        
+        // Teachers will be fetched dynamically via Elasticsearch
+    });
+    
+    /**
+     * Search teachers using Elasticsearch with debouncing
+     * Provides fast, fuzzy-matching autocomplete suggestions
+     */
+    function searchTeachers() {
+        const searchInput = document.getElementById('teacherSearch');
+        const query = searchInput.value.trim();
+        
+        // Clear previous timeout
+        if (searchTimeout) {
+            clearTimeout(searchTimeout);
+        }
+        
+        // Hide suggestions if query is too short
+        if (query.length < 2) {
+            hideSuggestions();
+            return;
+        }
+        
+        // Debounce search for better performance
+        searchTimeout = setTimeout(() => {
+            // Fetch suggestions from Elasticsearch API
+            fetch(`/api/teacher-autocomplete/?q=${encodeURIComponent(query)}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    const suggestions = data.results || [];
+                    displaySuggestions(suggestions);
+                })
+                .catch(error => {
+                    console.error('Error fetching teacher suggestions:', error);
+                    // Show user-friendly error
+                    hideSuggestions();
+                });
+        }, 300); // 300ms debounce delay
+    }
+    
+    function displaySuggestions(suggestions) {
+        const dropdown = document.getElementById('teacherSuggestions');
+        
+        if (suggestions.length === 0) {
+            hideSuggestions();
+            return;
+        }
+        
+        dropdown.innerHTML = suggestions.map(teacher => `
+            <div class="suggestion-item" onclick="selectTeacher('${teacher.full_name}')">
+                <span class="suggestion-icon">👨‍🏫</span>
+                <div style="flex: 1;">
+                    <span class="suggestion-text">${teacher.full_name}</span>
+                    ${teacher.faculty_name ? `<br><span class="suggestion-meta">🏛️ ${teacher.faculty_name}</span>` : ''}
+                </div>
+            </div>
+        `).join('');
+        
+        dropdown.classList.add('show');
+    }
+    
+    function hideSuggestions() {
+        const dropdown = document.getElementById('teacherSuggestions');
+        dropdown.classList.remove('show');
+        dropdown.innerHTML = '';
+    }
+    
+    function selectTeacher(teacherName) {
+        document.getElementById('teacherSearch').value = teacherName;
+        hideSuggestions();
+        initiateTeacherSearch();
+    }
+    
+    function initiateTeacherSearch() {
+        const teacherInput = document.getElementById('teacherSearch');
+        const teacherName = teacherInput.value.trim();
+        
+        if (!teacherName) {
+            alert('لطفاً نام استاد را وارد کنید');
+            teacherInput.focus();
+            return;
+        }
+        
+        if (teacherName.length < 2) {
+            alert('لطفاً حداقل 2 حرف از نام استاد را وارد کنید');
+            teacherInput.focus();
+            return;
+        }
+        
+        // Store teacher name and show day selection modal
+        searchedTeacherName = teacherName;
+        showDaySelectionModal();
+    }
+    
+    function showDaySelectionModal() {
+        const modal = document.getElementById('daySelectionModal');
+        const teacherNameDisplay = document.getElementById('selectedTeacherName');
+        
+        teacherNameDisplay.textContent = `استاد: ${searchedTeacherName}`;
+        modal.style.display = 'block';
+        
+        // Reset selection
+        selectedDay = null;
+        document.querySelectorAll('.day-option').forEach(opt => opt.classList.remove('selected'));
+        document.getElementById('confirmDayBtn').disabled = true;
+    }
+    
+    function closeDayModal() {
+        const modal = document.getElementById('daySelectionModal');
+        modal.style.display = 'none';
+        selectedDay = null;
+    }
+    
+    function selectDay(day) {
+        selectedDay = day;
+        
+        // Update UI
+        document.querySelectorAll('.day-option').forEach(opt => {
+            opt.classList.remove('selected');
+        });
+        
+        const selectedOption = document.querySelector(`[data-day="${day}"]`);
+        if (selectedOption) {
+            selectedOption.classList.add('selected');
+        }
+        
+        // Enable confirm button
+        document.getElementById('confirmDayBtn').disabled = false;
+    }
+    
+    function confirmDaySelection() {
+        if (!selectedDay || !searchedTeacherName) {
+            alert('لطفاً روز را انتخاب کنید');
+            return;
+        }
+        
+        // Redirect to teacher search results page
+        const url = `/teacher-classes/${selectedDay}/?q=${encodeURIComponent(searchedTeacherName)}`;
+        window.location.href = url;
+    }
+    
+    // Close modal when clicking outside
+    window.onclick = function(event) {
+        const dayModal = document.getElementById('daySelectionModal');
+        const featureModal = document.getElementById('featureModal');
+        
+        if (event.target === dayModal) {
+            closeDayModal();
+        }
+        
+        if (event.target === featureModal) {
+            closeFeatureModal();
+        }
+    }
+    
+    // Close modal with Escape key
+    document.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape') {
+            closeDayModal();
+            closeFeatureModal();
+        }
+    });
+    
+    // Feature modal functionality
+    function showFeatureInfo(featureType) {
+        const modal = document.getElementById('featureModal');
+        const modalIcon = document.getElementById('modalIcon');
+        const modalTitle = document.getElementById('modalTitle');
+        const modalBody = document.getElementById('modalBody');
+        const modalActionBtn = document.getElementById('modalActionBtn');
+        
+        // Feature data
+        const features = {
+            classes: {
+                icon: '📚',
+                title: 'مدیریت کلاس‌ها',
+                content: `
+                    <h4>چگونه از این ویژگی استفاده کنید:</h4>
+                    <ul>
+                        <li>بر روی "مشاهده کلاس‌ها" کلیک کنید</li>
+                        <li>روز هفته مورد نظر را انتخاب کنید</li>
+                        <li>زمان کلاس را انتخاب کنید</li>
+                        <li>برنامه کلاسی هر طبقه را مشاهده کنید</li>
+                        <li>کلاس‌ها را بر اساس استاد یا درس جستجو کنید</li>
+                    </ul>
+                    <h4>ویژگی‌های کلیدی:</h4>
+                    <ul>
+                        <li>نمایش برنامه کلاسی به تفکیک روز و زمان</li>
+                        <li>جستجوی پیشرفته بر اساس استاد و درس</li>
+                        <li>نمایش اطلاعات کامل کلاس‌ها شامل اتاق و ظرفیت</li>
+                        <li>رابط کاربری زیبا و کاربرپسند</li>
+                    </ul>
+                `,
+                actionUrl: "{% url 'classes:faculty_selection' %}",
+                actionText: 'مشاهده کلاس‌ها'
+            },
+            teachers: {
+                icon: '👨‍🏫',
+                title: 'اساتید دانشکده',
+                content: `
+                    <h4>اطلاعات اساتید:</h4>
+                    <ul>
+                        <li>مشاهده لیست کامل اساتید دانشکده</li>
+                        <li>اطلاعات تماس و ایمیل اساتید</li>
+                        <li>تخصص و رشته تدریس هر استاد</li>
+                        <li>برنامه کلاسی هر استاد</li>
+                    </ul>
+                    <h4>ویژگی‌های کلیدی:</h4>
+                    <ul>
+                        <li>دسترسی آسان به اطلاعات اساتید</li>
+                        <li>امکان جستجوی سریع</li>
+                        <li>اطلاعات تماس و ارتباطی</li>
+                        <li>برنامه تدریس هر استاد</li>
+                    </ul>
+                `,
+                actionUrl: "{% url 'classes:faculty_selection' %}",
+                actionText: 'مشاهده اساتید'
+            },
+            api: {
+                icon: '🔌',
+                title: 'API دسترسی به داده‌ها',
+                content: `
+                    <h4>قابلیت‌های API:</h4>
+                    <ul>
+                        <li>دسترسی برنامه‌نویسی به برنامه کلاسی</li>
+                        <li>دریافت اطلاعات اساتید و دروس</li>
+                        <li>فیلتر و جستجوی پیشرفته</li>
+                        <li>فرمت JSON برای یکپارچگی آسان</li>
+                    </ul>
+                    <h4>موارد استفاده:</h4>
+                    <ul>
+                        <li>توسعه اپلیکیشن موبایل</li>
+                        <li>یکپارچه‌سازی با سیستم‌های دیگر</li>
+                        <li>ساخت بات‌های تلگرام و دیسکورد</li>
+                        <li>تحلیل و گزارش‌گیری</li>
+                    </ul>
+                `,
+                actionUrl: "/api/",
+                actionText: 'مستندات API'
+            }
+        };
+        
+        const feature = features[featureType];
+        if (feature) {
+            modalIcon.textContent = feature.icon;
+            modalTitle.textContent = feature.title;
+            modalBody.innerHTML = feature.content;
+            modalActionBtn.href = feature.actionUrl;
+            modalActionBtn.textContent = feature.actionText;
+            modal.style.display = 'block';
+        }
+    }
+    
+    function closeFeatureModal() {
+        const modal = document.getElementById('featureModal');
+        modal.style.display = 'none';
+    }
+    
+    // Close modal when clicking outside
+    window.onclick = function(event) {
+        const modal = document.getElementById('featureModal');
+        if (event.target === modal) {
+            closeFeatureModal();
+        }
+    }
+    
+    // Close modal with Escape key
+    document.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape') {
+            closeFeatureModal();
+        }
+    });
+</script>
+{% endblock %}
