@@ -5,12 +5,41 @@ set -e
 
 echo "Starting University Hub application..."
 
-# Wait for database to be ready
+# Wait for database to be ready using Python
 echo "Waiting for database..."
-while ! nc -z $DB_HOST $DB_PORT; do
-  sleep 0.1
-done
-echo "Database is ready!"
+python << END
+import os
+import time
+import socket
+
+db_host = os.environ.get('DB_HOST', 'localhost')
+db_port = int(os.environ.get('DB_PORT', '3306'))
+
+max_retries = 30
+retry_count = 0
+
+while retry_count < max_retries:
+    try:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(1)
+        result = sock.connect_ex((db_host, db_port))
+        sock.close()
+        
+        if result == 0:
+            print(f"Database is ready at {db_host}:{db_port}")
+            break
+    except socket.gaierror:
+        pass
+    
+    retry_count += 1
+    if retry_count < max_retries:
+        time.sleep(1)
+    else:
+        print(f"Could not connect to database at {db_host}:{db_port} after {max_retries} attempts")
+        exit(1)
+END
+
+echo "Database connection verified!"
 
 # Run migrations
 echo "Running database migrations..."
