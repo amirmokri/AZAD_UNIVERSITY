@@ -10,6 +10,12 @@
     <!-- Load static files -->
     {% load static %}
     
+    <!-- Favicon - Single file for all devices -->
+    <link rel="icon" type="image/x-icon" href="{% static 'images/favicon.ico' %}">
+    <link rel="shortcut icon" href="{% static 'images/favicon.ico' %}">
+    <link rel="apple-touch-icon" href="{% static 'images/favicon.ico' %}">
+    <meta name="theme-color" content="#667eea">
+    
     <!-- Main CSS -->
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
     <link rel="stylesheet" href="{% static 'css/global-improvements.css' %}">

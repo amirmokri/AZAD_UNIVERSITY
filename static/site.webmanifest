@@ -1,0 +1,19 @@
+{
+    "name": "دانشگاه آزاد اسلامی واحد کرج",
+    "short_name": "دانشگاه کرج",
+    "description": "سیستم مدیریت برنامه کلاسی",
+    "icons": [
+        {
+            "src": "/static/images/favicon.ico",
+            "sizes": "any",
+            "type": "image/x-icon"
+        }
+    ],
+    "theme_color": "#667eea",
+    "background_color": "#ffffff",
+    "display": "standalone",
+    "orientation": "portrait",
+    "start_url": "/",
+    "scope": "/"
+}
+
