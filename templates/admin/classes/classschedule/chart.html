@@ -867,28 +867,60 @@
                                 
                                 {% if selected_day %}
                                     {% for schedule in schedules %}
-                                        {% if schedule.day_of_week == selected_day and schedule.room.id == room.id and schedule.time_slot == time_slot.0 and schedule.course.credit_hours <= 2 %}
-                                            <div class="schedule-content occupied {% if not schedule.is_holding %}not-holding{% endif %}">
-                                                <div class="course-code">{{ schedule.course.course_code }}</div>
-                                                <div class="course-name">{{ schedule.course.course_name }}</div>
-                                                <div class="teacher-name">{{ schedule.teacher.full_name }}</div>
-                                                {% if schedule.semester %}
-                                                <div class="semester-info">{{ schedule.semester }}</div>
+                                        {% if schedule.day_of_week == selected_day and schedule.room.id == room.id and schedule.course.credit_hours <= 2 %}
+                                            {% if schedule.start_time and schedule.end_time %}
+                                                {% if schedule.start_time|time:"H:i" == time_slot.0|slice:":5" and schedule.end_time|time:"H:i" == time_slot.0|slice:"6:" %}
+                                                    <div class="schedule-content occupied {% if not schedule.is_holding %}not-holding{% endif %}">
+                                                        <div class="course-code">{{ schedule.course.course_code }}</div>
+                                                        <div class="course-name">{{ schedule.course.course_name }}</div>
+                                                        <div class="teacher-name">{{ schedule.teacher.full_name }}</div>
+                                                        {% if schedule.semester %}
+                                                        <div class="semester-info">{{ schedule.semester }}</div>
+                                                        {% endif %}
+                                                        <div class="credit-hours">{{ schedule.course.credit_hours }}</div>
+                                                        <input type="hidden" class="schedule-data" 
+                                                               data-schedule-id="{{ schedule.id }}"
+                                                               data-course-id="{{ schedule.course.id }}"
+                                                               data-course-name="{{ schedule.course.course_name }}"
+                                                               data-course-code="{{ schedule.course.course_code }}"
+                                                               data-teacher-id="{{ schedule.teacher.id }}"
+                                                               data-teacher-name="{{ schedule.teacher.full_name }}"
+                                                               data-credit="{{ schedule.course.credit_hours }}"
+                                                               data-holding="{{ schedule.is_holding }}"
+                                                               data-semester="{{ schedule.semester }}"
+                                                               data-academic-year="{{ schedule.academic_year }}"
+                                                               data-notes="{{ schedule.notes }}"
+                                                               data-start-time="{{ schedule.start_time|time:'H:i' }}"
+                                                               data-end-time="{{ schedule.end_time|time:'H:i' }}">
+                                                    </div>
                                                 {% endif %}
-                                                <div class="credit-hours">{{ schedule.course.credit_hours }}</div>
-                                                <input type="hidden" class="schedule-data" 
-                                                       data-schedule-id="{{ schedule.id }}"
-                                                       data-course-id="{{ schedule.course.id }}"
-                                                       data-course-name="{{ schedule.course.course_name }}"
-                                                       data-course-code="{{ schedule.course.course_code }}"
-                                                       data-teacher-id="{{ schedule.teacher.id }}"
-                                                       data-teacher-name="{{ schedule.teacher.full_name }}"
-                                                       data-credit="{{ schedule.course.credit_hours }}"
-                                                       data-holding="{{ schedule.is_holding }}"
-                                                       data-semester="{{ schedule.semester }}"
-                                                       data-academic-year="{{ schedule.academic_year }}"
-                                                       data-notes="{{ schedule.notes }}">
-                                            </div>
+                                            {% else %}
+                                                {% if schedule.time_slot == time_slot.0 %}
+                                                    <div class="schedule-content occupied {% if not schedule.is_holding %}not-holding{% endif %}">
+                                                        <div class="course-code">{{ schedule.course.course_code }}</div>
+                                                        <div class="course-name">{{ schedule.course.course_name }}</div>
+                                                        <div class="teacher-name">{{ schedule.teacher.full_name }}</div>
+                                                        {% if schedule.semester %}
+                                                        <div class="semester-info">{{ schedule.semester }}</div>
+                                                        {% endif %}
+                                                        <div class="credit-hours">{{ schedule.course.credit_hours }}</div>
+                                                        <input type="hidden" class="schedule-data" 
+                                                               data-schedule-id="{{ schedule.id }}"
+                                                               data-course-id="{{ schedule.course.id }}"
+                                                               data-course-name="{{ schedule.course.course_name }}"
+                                                               data-course-code="{{ schedule.course.course_code }}"
+                                                               data-teacher-id="{{ schedule.teacher.id }}"
+                                                               data-teacher-name="{{ schedule.teacher.full_name }}"
+                                                               data-credit="{{ schedule.course.credit_hours }}"
+                                                               data-holding="{{ schedule.is_holding }}"
+                                                               data-semester="{{ schedule.semester }}"
+                                                               data-academic-year="{{ schedule.academic_year }}"
+                                                               data-notes="{{ schedule.notes }}"
+                                                               data-start-time="{{ schedule.start_time|time:'H:i' }}"
+                                                               data-end-time="{{ schedule.end_time|time:'H:i' }}">
+                                                    </div>
+                                                {% endif %}
+                                            {% endif %}
                                         {% endif %}
                                     {% endfor %}
                                     {% if not schedules %}
@@ -916,28 +948,60 @@
                                 
                                 {% if selected_day %}
                                     {% for schedule in schedules %}
-                                        {% if schedule.day_of_week == selected_day and schedule.room.id == room.id and schedule.time_slot == time_slot.0 and schedule.course.credit_hours >= 3 %}
-                                            <div class="schedule-content occupied {% if not schedule.is_holding %}not-holding{% endif %}">
-                                                <div class="course-code">{{ schedule.course.course_code }}</div>
-                                                <div class="course-name">{{ schedule.course.course_name }}</div>
-                                                <div class="teacher-name">{{ schedule.teacher.full_name }}</div>
-                                                {% if schedule.semester %}
-                                                <div class="semester-info">{{ schedule.semester }}</div>
+                                        {% if schedule.day_of_week == selected_day and schedule.room.id == room.id and schedule.course.credit_hours >= 3 %}
+                                            {% if schedule.start_time and schedule.end_time %}
+                                                {% if schedule.start_time|time:"H:i" == time_slot.0|slice:":5" and schedule.end_time|time:"H:i" == time_slot.0|slice:"6:" %}
+                                                    <div class="schedule-content occupied {% if not schedule.is_holding %}not-holding{% endif %}">
+                                                        <div class="course-code">{{ schedule.course.course_code }}</div>
+                                                        <div class="course-name">{{ schedule.course.course_name }}</div>
+                                                        <div class="teacher-name">{{ schedule.teacher.full_name }}</div>
+                                                        {% if schedule.semester %}
+                                                        <div class="semester-info">{{ schedule.semester }}</div>
+                                                        {% endif %}
+                                                        <div class="credit-hours three-plus">{{ schedule.course.credit_hours }}</div>
+                                                        <input type="hidden" class="schedule-data" 
+                                                               data-schedule-id="{{ schedule.id }}"
+                                                               data-course-id="{{ schedule.course.id }}"
+                                                               data-course-name="{{ schedule.course.course_name }}"
+                                                               data-course-code="{{ schedule.course.course_code }}"
+                                                               data-teacher-id="{{ schedule.teacher.id }}"
+                                                               data-teacher-name="{{ schedule.teacher.full_name }}"
+                                                               data-credit="{{ schedule.course.credit_hours }}"
+                                                               data-holding="{{ schedule.is_holding }}"
+                                                               data-semester="{{ schedule.semester }}"
+                                                               data-academic-year="{{ schedule.academic_year }}"
+                                                               data-notes="{{ schedule.notes }}"
+                                                               data-start-time="{{ schedule.start_time|time:'H:i' }}"
+                                                               data-end-time="{{ schedule.end_time|time:'H:i' }}">
+                                                    </div>
                                                 {% endif %}
-                                                <div class="credit-hours three-plus">{{ schedule.course.credit_hours }}</div>
-                                                <input type="hidden" class="schedule-data" 
-                                                       data-schedule-id="{{ schedule.id }}"
-                                                       data-course-id="{{ schedule.course.id }}"
-                                                       data-course-name="{{ schedule.course.course_name }}"
-                                                       data-course-code="{{ schedule.course.course_code }}"
-                                                       data-teacher-id="{{ schedule.teacher.id }}"
-                                                       data-teacher-name="{{ schedule.teacher.full_name }}"
-                                                       data-credit="{{ schedule.course.credit_hours }}"
-                                                       data-holding="{{ schedule.is_holding }}"
-                                                       data-semester="{{ schedule.semester }}"
-                                                       data-academic-year="{{ schedule.academic_year }}"
-                                                       data-notes="{{ schedule.notes }}">
-                                            </div>
+                                            {% else %}
+                                                {% if schedule.time_slot == time_slot.0 %}
+                                                    <div class="schedule-content occupied {% if not schedule.is_holding %}not-holding{% endif %}">
+                                                        <div class="course-code">{{ schedule.course.course_code }}</div>
+                                                        <div class="course-name">{{ schedule.course.course_name }}</div>
+                                                        <div class="teacher-name">{{ schedule.teacher.full_name }}</div>
+                                                        {% if schedule.semester %}
+                                                        <div class="semester-info">{{ schedule.semester }}</div>
+                                                        {% endif %}
+                                                        <div class="credit-hours three-plus">{{ schedule.course.credit_hours }}</div>
+                                                        <input type="hidden" class="schedule-data" 
+                                                               data-schedule-id="{{ schedule.id }}"
+                                                               data-course-id="{{ schedule.course.id }}"
+                                                               data-course-name="{{ schedule.course.course_name }}"
+                                                               data-course-code="{{ schedule.course.course_code }}"
+                                                               data-teacher-id="{{ schedule.teacher.id }}"
+                                                               data-teacher-name="{{ schedule.teacher.full_name }}"
+                                                               data-credit="{{ schedule.course.credit_hours }}"
+                                                               data-holding="{{ schedule.is_holding }}"
+                                                               data-semester="{{ schedule.semester }}"
+                                                               data-academic-year="{{ schedule.academic_year }}"
+                                                               data-notes="{{ schedule.notes }}"
+                                                               data-start-time="{{ schedule.start_time|time:'H:i' }}"
+                                                               data-end-time="{{ schedule.end_time|time:'H:i' }}">
+                                                    </div>
+                                                {% endif %}
+                                            {% endif %}
                                         {% endif %}
                                     {% endfor %}
                                     {% if not schedules %}
@@ -1040,6 +1104,18 @@
                 
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
                     <div class="form-group">
+                        <label for="startTime">ساعت شروع:</label>
+                        <input type="time" id="startTime" name="start_time" placeholder="مثال: 07:30">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="endTime">ساعت پایان:</label>
+                        <input type="time" id="endTime" name="end_time" placeholder="مثال: 09:15">
+                    </div>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <div class="form-group">
                         <label for="semester">نیمسال:</label>
                         <input type="text" id="semester" name="semester" placeholder="مثال: 1403-1">
                     </div>
@@ -1098,6 +1174,15 @@ function openScheduleModal(cell) {
         document.getElementById('academicYear').value = scheduleData.dataset.academicYear || '';
         document.getElementById('isHolding').value = scheduleData.dataset.holding;
         document.getElementById('notes').value = scheduleData.dataset.notes || '';
+        
+        // Fill time fields if available
+        if (scheduleData.dataset.startTime) {
+            document.getElementById('startTime').value = scheduleData.dataset.startTime;
+        }
+        if (scheduleData.dataset.endTime) {
+            document.getElementById('endTime').value = scheduleData.dataset.endTime;
+        }
+        
         document.getElementById('deleteBtn').style.display = 'inline-block';
         
         // Show existing schedule info
@@ -1118,6 +1203,8 @@ function openScheduleModal(cell) {
         document.getElementById('academicYear').value = '';
         document.getElementById('isHolding').value = 'true';
         document.getElementById('notes').value = '';
+        document.getElementById('startTime').value = '';
+        document.getElementById('endTime').value = '';
         document.getElementById('deleteBtn').style.display = 'none';
         
         // Hide existing schedule info for new schedules
@@ -1208,19 +1295,23 @@ function getDayName(dayValue) {
 }
 
 function getTimeDisplay(timeValue) {
-    const timeMap = {
-        '07:30-09:15': '7:30-9:15',
-        '09:15-11:00': '9:15-11:00',
-        '11:00-13:15': '11:00-13:15',
-        '13:15-15:00': '13:15-15:00',
-        '15:00-16:45': '15:00-16:45',
-        '16:45-18:00': '16:45-18:00',
-        '07:30-10:10': '7:30-10:10',
-        '10:15-13:30': '10:15-13:30',
-        '13:30-16:00': '13:30-16:00',
-        '16:00-18:30': '16:00-18:30'
-    };
-    return timeMap[timeValue] || timeValue;
+    // Handle both old time_slot format and new start_time-end_time format
+    if (timeValue && timeValue.includes('-')) {
+        const timeMap = {
+            '07:30-09:15': '7:30-9:15',
+            '09:15-11:00': '9:15-11:00',
+            '11:00-13:15': '11:00-13:15',
+            '13:15-15:00': '13:15-15:00',
+            '15:00-16:45': '15:00-16:45',
+            '16:45-18:00': '16:45-18:00',
+            '07:30-10:10': '7:30-10:10',
+            '10:15-13:30': '10:15-13:30',
+            '13:30-16:00': '13:30-16:00',
+            '16:00-18:30': '16:00-18:30'
+        };
+        return timeMap[timeValue] || timeValue;
+    }
+    return timeValue || 'زمان نامشخص';
 }
 
 // Helper functions removed - now using IDs directly from data attributes

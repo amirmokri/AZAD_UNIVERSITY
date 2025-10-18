@@ -16,7 +16,7 @@ from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
-from datetime import timedelta
+from datetime import timedelta, time as dtime
 import hashlib
 from .models import Faculty, ClassSchedule, Floor, Room, Course, Teacher, ClassCancellationVote, ClassConfirmationVote
 from .search import search_courses, search_teachers, autocomplete_courses, autocomplete_teachers
@@ -94,6 +94,56 @@ def class_affairs(request, faculty_id):
         {'key': 'thursday', 'name': 'پنجشنبه'},
         {'key': 'friday', 'name': 'جمعه'},
     ]
+    
+    # Get all available time slots from actual schedules in this faculty
+    from classes.models import ClassSchedule
+    from django.db.models import Q
+    
+    # Get distinct start times from schedules in this faculty
+    schedules = ClassSchedule.objects.filter(
+        Q(room__floor__faculty=faculty) | Q(course__faculty=faculty),
+        is_active=True
+    ).select_related('room__floor', 'course')
+    
+    # Group schedules by day and start time
+    day_schedules = {}
+    for schedule in schedules:
+        day = schedule.day_of_week
+        if day not in day_schedules:
+            day_schedules[day] = {}
+        
+        # Use start_time as key, group schedules by same start time
+        start_key = schedule.start_time.strftime('%H:%M') if schedule.start_time else 'unknown'
+        if start_key not in day_schedules[day]:
+            day_schedules[day][start_key] = {
+                'start_time': schedule.start_time,
+                'end_time': schedule.end_time,
+                'schedules': [],
+                'count': 0
+            }
+        
+        day_schedules[day][start_key]['schedules'].append(schedule)
+        day_schedules[day][start_key]['count'] += 1
+    
+    # Add time info to days
+    for day in days:
+        day_key = day['key']
+        if day_key in day_schedules:
+            # Sort time slots by start time
+            time_slots = sorted(day_schedules[day_key].items(), 
+                              key=lambda x: x[1]['start_time'] or dtime.min)
+            day['time_slots'] = []
+            for start_key, slot_data in time_slots:
+                day['time_slots'].append({
+                    'start_time': slot_data['start_time'],
+                    'end_time': slot_data['end_time'],
+                    'start_display': slot_data['start_time'].strftime('%H:%M') if slot_data['start_time'] else 'نامشخص',
+                    'end_display': slot_data['end_time'].strftime('%H:%M') if slot_data['end_time'] else 'نامشخص',
+                    'count': slot_data['count'],
+                    'schedules': slot_data['schedules']
+                })
+        else:
+            day['time_slots'] = []
     
     context = {
         'page_title': 'امور کلاس‌ها',
@@ -181,6 +231,12 @@ def floor_view(request, faculty_id, day, time):
     This is the main view where students see the visual representation
     of classes across different floors.
     
+    Features:
+    - Room positioning based on position field (left/right/center)
+    - Search functionality for teachers and courses
+    - Student voting system for class status
+    - Responsive design for mobile and desktop
+    
     Args:
         request: Django HTTP request object
         faculty_id: Selected faculty ID
@@ -196,15 +252,10 @@ def floor_view(request, faculty_id, day, time):
     
     # Validate parameters
     valid_days = ['saturday', 'sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday']
-    # All valid time slots from the model
-    valid_times = [
-        '07:30-09:15', '09:15-11:00', '11:00-13:15', '13:15-15:00', '15:00-16:45', '16:45-18:00',
-        '07:30-10:10', '10:15-13:30', '13:30-16:00', '16:00-18:30'
-    ]
     
-    if day not in valid_days or time not in valid_times:
+    if day not in valid_days:
         context = {
-            'error': 'روز یا زمان انتخاب شده معتبر نیست.'
+            'error': 'روز انتخاب شده معتبر نیست.'
         }
         return render(request, 'classes/error.html', context, status=400)
     
@@ -241,8 +292,9 @@ def floor_view(request, faculty_id, day, time):
         floors = Floor.objects.filter(
             is_active=True
         ).prefetch_related(
-            'rooms',
-            'rooms__schedules'
+            'rooms__schedules__teacher',
+            'rooms__schedules__course',
+            'rooms__schedules__course__faculty'
         ).order_by('floor_number')
         
         # Prepare floor data with rooms and schedules
@@ -256,20 +308,65 @@ def floor_view(request, faculty_id, day, time):
             # Organize rooms by position
             left_rooms = []
             right_rooms = []
-            center_rooms = []
             
             for room in rooms:
                 # Get schedule for this room at selected day and time
+                # Support both new time fields and legacy time_slot
                 try:
-                    schedule = ClassSchedule.objects.select_related(
-                        'teacher', 'course', 'course__faculty'
-                    ).filter(
-                        room=room,
-                        day_of_week=day,
-                        time_slot=time,
-                        is_active=True,
-                        course__faculty=faculty
-                    ).first()
+                    from datetime import time as time_obj
+                    
+                    schedule = None
+                    
+                    # Try to parse time as HH:MM format (from new class_affairs page)
+                    if ':' in time and len(time.split(':')) == 2:
+                        try:
+                            start_time = time_obj.fromisoformat(time)
+                            
+                            # Look for schedule with this start_time
+                            schedule = ClassSchedule.objects.select_related(
+                                'teacher', 'course', 'course__faculty'
+                            ).filter(
+                                room=room,
+                                day_of_week=day,
+                                start_time=start_time,
+                                is_active=True,
+                                course__faculty=faculty
+                            ).first()
+                        except ValueError:
+                            pass
+                    
+                    # Try to parse time as HH:MM-HH:MM format for new fields
+                    if not schedule and '-' in time and len(time.split('-')) == 2:
+                        start_str, end_str = time.split('-')
+                        try:
+                            start_time = time_obj.fromisoformat(start_str)
+                            end_time = time_obj.fromisoformat(end_str)
+                            
+                            # Look for schedule with new time fields
+                            schedule = ClassSchedule.objects.select_related(
+                                'teacher', 'course', 'course__faculty'
+                            ).filter(
+                                room=room,
+                                day_of_week=day,
+                                start_time=start_time,
+                                end_time=end_time,
+                                is_active=True,
+                                course__faculty=faculty
+                            ).first()
+                        except ValueError:
+                            pass
+                    
+                    # Fallback to legacy time_slot if not found
+                    if not schedule:
+                        schedule = ClassSchedule.objects.select_related(
+                            'teacher', 'course', 'course__faculty'
+                        ).filter(
+                            room=room,
+                            day_of_week=day,
+                            time_slot=time,
+                            is_active=True,
+                            course__faculty=faculty
+                        ).first()
                 except ClassSchedule.DoesNotExist:
                     schedule = None
                 
@@ -290,8 +387,16 @@ def floor_view(request, faculty_id, day, time):
                     left_rooms.append(room_info)
                 elif room.position == 'right':
                     right_rooms.append(room_info)
+                elif room.position == 'center':
+                    # Distribute center rooms between left and right columns
+                    # Alternate between left and right for better visual balance
+                    if len(left_rooms) <= len(right_rooms):
+                        left_rooms.append(room_info)
+                    else:
+                        right_rooms.append(room_info)
                 else:
-                    center_rooms.append(room_info)
+                    # Default to left column for unknown positions
+                    left_rooms.append(room_info)
             
             # Sort rooms by room number (convert to int for proper sorting)
             def sort_key(room_info):
@@ -307,31 +412,43 @@ def floor_view(request, faculty_id, day, time):
             
             left_rooms.sort(key=sort_key)
             right_rooms.sort(key=sort_key)
-            center_rooms.sort(key=sort_key)
             
             # Filter out empty rooms when searching
             if search_query:
                 # When searching, only show rooms that have matching schedules
                 left_rooms = [room for room in left_rooms if room['schedule']]
                 right_rooms = [room for room in right_rooms if room['schedule']]
-                center_rooms = [room for room in center_rooms if room['schedule']]
             
             # Only include floor if it has rooms with schedules (when searching) or any rooms (when not searching)
-            if not search_query or any(room['schedule'] for room in left_rooms + right_rooms + center_rooms):
+            if not search_query or any(room['schedule'] for room in left_rooms + right_rooms):
                 floor_data.append({
                     'floor': floor,
                     'left_rooms': left_rooms,
                     'right_rooms': right_rooms,
-                    'center_rooms': center_rooms,
                 })
         
+        # Format time display - handle both new and legacy formats
+        if ':' in time and '-' not in time:
+            # New format: HH:MM
+            try:
+                from datetime import time as time_obj
+                start_time = time_obj.fromisoformat(time)
+                time_display = f"{time} - زمان شروع"
+            except ValueError:
+                time_display = time
+        elif '-' in time:
+            # Legacy format: HH:MM-HH:MM
+            time_display = time_names.get(time, time)
+        else:
+            time_display = time
+        
         context = {
-            'page_title': f'برنامه کلاسی - {day_names[day]} - {time_names.get(time, time)}',
+            'page_title': f'برنامه کلاسی - {day_names[day]} - {time_display}',
             'faculty': faculty,
             'selected_day': day,
             'selected_time': time,
             'day_name': day_names[day],
-            'time_name': time_names.get(time, time),
+            'time_name': time_display,
             'floor_data': floor_data,
             'search_query': search_query,
         }
@@ -339,9 +456,17 @@ def floor_view(request, faculty_id, day, time):
         return render(request, 'classes/floor_view.html', context)
         
     except Exception as e:
-        # Handle any unexpected errors
+        # Handle any unexpected errors with detailed logging
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Floor view error for faculty {faculty_id}, day {day}, time {time}: {str(e)}", 
+                    exc_info=True)
+        
         context = {
-            'error': f'خطا در بارگذاری اطلاعات: {str(e)}'
+            'error': f'خطا در بارگذاری اطلاعات: {str(e)}',
+            'faculty_id': faculty_id,
+            'day': day,
+            'time': time
         }
         return render(request, 'classes/error.html', context, status=500)
 
@@ -395,7 +520,7 @@ def teacher_classes_view(request, day):
             day_of_week=day,
             is_active=True,
             teacher__full_name__icontains=teacher_name
-        ).select_related('teacher', 'course', 'room', 'room__floor').order_by('time_slot', 'room__floor__floor_number')
+        ).select_related('teacher', 'course', 'room', 'room__floor').order_by('start_time', 'time_slot', 'room__floor__floor_number')
         
         if not classes.exists():
             # No classes found for this teacher on this day
@@ -409,13 +534,13 @@ def teacher_classes_view(request, day):
             }
             return render(request, 'classes/teacher_classes.html', context)
         
-        # Group classes by time slot
+        # Group classes by time display (using new method)
         time_slots = {}
         for class_schedule in classes:
-            time_slot = class_schedule.time_slot
-            if time_slot not in time_slots:
-                time_slots[time_slot] = []
-            time_slots[time_slot].append(class_schedule)
+            time_display = class_schedule.get_time_display()
+            if time_display not in time_slots:
+                time_slots[time_display] = []
+            time_slots[time_display].append(class_schedule)
         
         context = {
             'page_title': f'برنامه کلاسی {teacher_name} - {day_names[day]}',

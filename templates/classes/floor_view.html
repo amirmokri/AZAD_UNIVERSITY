@@ -1006,7 +1006,7 @@
                     <h2 class="floor-title">{{ floor_info.floor.floor_name }}</h2>
                 </div>
                 
-                <!-- Rooms Grid - Left Side Column -->
+                <!-- Rooms Grid - Positioned Columns -->
                 <div class="rooms-grid">
                     <!-- Left Column (Left side of corridor) -->
                     <div class="side-column left-column">
@@ -1044,11 +1044,11 @@
                                                 ← سمت چپ راهرو
                                             {% elif room_info.room.position == 'right' %}
                                                 سمت راست راهرو →
-                                            {% elif room_info.room.position == 'middle' %}
+                                            {% elif room_info.room.position == 'center' %}
                                                 ☰ وسط (دو طرفه)
-                                                {% else %}
+                                            {% else %}
                                                 📍 {{ room_info.room.get_position_display|default:"موقعیت نامشخص" }}
-                                                {% endif %}
+                                            {% endif %}
                                         </span>
                                             </div>
                                     <div class="holding-status {% if room_info.schedule.student_reported_not_holding %}student-cancelled{% elif room_info.schedule.is_holding %}held{% else %}not-held{% endif %}">
@@ -1130,7 +1130,7 @@
                                                 ← سمت چپ راهرو
                                             {% elif room_info.room.position == 'right' %}
                                                 سمت راست راهرو →
-                                            {% elif room_info.room.position == 'middle' %}
+                                            {% elif room_info.room.position == 'center' %}
                                                 ☰ وسط (دو طرفه)
                                             {% else %}
                                                 📍 {{ room_info.room.get_position_display|default:"موقعیت نامشخص" }}
@@ -1179,89 +1179,6 @@
                             </div>
                         {% endfor %}
                     
-                    {% for room_info in floor_info.center_rooms %}
-                    <div class="room-card {% if room_info.schedule %}{% if room_info.schedule.student_reported_not_holding %}student-cancelled{% elif room_info.schedule.is_holding %}has-class{% else %}not-held{% endif %}{% else %}empty-room-card{% endif %}">
-                                <div class="room-header">
-                            <span class="room-number">{{ room_info.room.room_number }}</span>
-                                    <span class="room-type">{{ room_info.room.get_room_type_display }}</span>
-                                </div>
-                                <div class="room-body">
-                                    {% if room_info.schedule %}
-                                        <div class="class-info">
-                                            <div class="info-row">
-                                        <span class="info-label">📚 درس:</span>
-                                        <span class="info-value course-name-large">{{ room_info.schedule.course.course_name }}</span>
-                                            </div>
-                                            <div class="info-row">
-                                                <span class="info-label">🔢 کد درس:</span>
-                                                <span class="info-value">{{ room_info.schedule.course.course_code }}</span>
-                                            </div>
-                                            <div class="info-row">
-                                        <span class="info-label">🏛️ دانشکده:</span>
-                                        <span class="info-value faculty-name">{{ room_info.schedule.course.faculty.faculty_name|default:"تعیین نشده" }}</span>
-                                    </div>
-                                    <div class="info-row">
-                                        <span class="info-label">👨‍🏫 استاد:</span>
-                                        <span class="info-value teacher-name-large">{{ room_info.schedule.teacher.full_name|default:"تعیین نشده" }}</span>
-                                    </div>
-                                    <div class="info-row">
-                                                <span class="capacity-badge">{{ room_info.room.capacity }} نفر</span>
-                                            </div>
-                                    <div class="info-row">
-                                        <span class="corridor-indicator">
-                                            {% if room_info.room.position == 'left' %}
-                                                ← سمت چپ راهرو
-                                            {% elif room_info.room.position == 'right' %}
-                                                سمت راست راهرو →
-                                            {% elif room_info.room.position == 'middle' %}
-                                                ☰ وسط (دو طرفه)
-                                            {% else %}
-                                                📍 {{ room_info.room.get_position_display|default:"موقعیت نامشخص" }}
-                                            {% endif %}
-                                        </span>
-                                    </div>
-                                    <div class="holding-status {% if room_info.schedule.student_reported_not_holding %}student-cancelled{% elif room_info.schedule.is_holding %}held{% else %}not-held{% endif %}">
-                                        {% if room_info.schedule.student_reported_not_holding %}
-                                            ⚠️ دانشجویان گزارش داده‌اند: کلاس برگزار نمی‌شود
-                                        {% elif room_info.schedule.is_holding %}
-                                                    ✅ کلاس برگزار می‌شود
-                                                {% else %}
-                                                    ⏸️ کلاس برگزار نمی‌شود
-                                                {% endif %}
-                                            </div>
-                                    
-                                    <!-- Vote Buttons -->
-                                    <div class="voting-section">
-                                        <button class="vote-button vote-cancel" 
-                                                data-schedule-id="{{ room_info.schedule.id }}"
-                                                onclick="voteForCancellation(this, {{ room_info.schedule.id }})">
-                                            🚫 برگزار نمی‌شود
-                                        </button>
-                                        <div class="vote-count cancel-count">
-                                            <span id="cancel-count-{{ room_info.schedule.id }}">{{ room_info.schedule.get_cancellation_vote_count }}</span> رای
-                                        </div>
-                                    </div>
-                                    
-                                    <div class="voting-section">
-                                        <button class="vote-button vote-confirm" 
-                                                data-schedule-id="{{ room_info.schedule.id }}"
-                                                onclick="voteForConfirmation(this, {{ room_info.schedule.id }})">
-                                            ✅ برگزار می‌شود
-                                        </button>
-                                        <div class="vote-count confirm-count">
-                                            <span id="confirm-count-{{ room_info.schedule.id }}">{{ room_info.schedule.get_confirmation_vote_count }}</span> رای
-                                        </div>
-                                            </div>
-                                        </div>
-                                    {% else %}
-                                        <div class="empty-room">
-                                            کلاسی برنامه‌ریزی نشده
-                                        </div>
-                                    {% endif %}
-                                </div>
-                            </div>
-                        {% endfor %}
-                    </div>
                 </div>
             </div>
             {% endfor %}

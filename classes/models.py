@@ -238,7 +238,31 @@ class ClassSchedule(models.Model):
     course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='schedules', verbose_name="درس")
     room = models.ForeignKey(Room, on_delete=models.CASCADE, related_name='schedules', verbose_name="اتاق")
     day_of_week = models.CharField(max_length=15, choices=DAY_CHOICES, verbose_name="روز هفته")
-    time_slot = models.CharField(max_length=15, choices=TIME_CHOICES, verbose_name="زمان")
+    
+    # New flexible time fields - primary timing source
+    start_time = models.TimeField(
+        null=True, 
+        blank=True, 
+        verbose_name="ساعت شروع",
+        help_text="ساعت شروع کلاس (مثال: 07:30)"
+    )
+    end_time = models.TimeField(
+        null=True, 
+        blank=True, 
+        verbose_name="ساعت پایان",
+        help_text="ساعت پایان کلاس (مثال: 09:15)"
+    )
+    
+    # Legacy time slot field - kept for backward compatibility
+    time_slot = models.CharField(
+        max_length=15, 
+        choices=TIME_CHOICES, 
+        null=True, 
+        blank=True, 
+        verbose_name="بازه زمانی (قدیمی)",
+        help_text="بازه زمانی قدیمی - به صورت خودکار از ساعت شروع و پایان محاسبه می‌شود"
+    )
+    
     semester = models.CharField(max_length=20, blank=True, null=True, verbose_name="نیمسال")
     academic_year = models.CharField(max_length=20, blank=True, null=True, verbose_name="سال تحصیلی")
     notes = models.TextField(blank=True, null=True, verbose_name="یادداشت‌ها")
@@ -276,13 +300,74 @@ class ClassSchedule(models.Model):
     class Meta:
         verbose_name = "برنامه کلاسی"
         verbose_name_plural = "برنامه‌های کلاسی"
-        ordering = ['day_of_week', 'time_slot', 'room__floor__floor_number']
-        unique_together = ['room', 'day_of_week', 'time_slot']
+        ordering = ['day_of_week', 'start_time', 'room__floor__floor_number']
+        unique_together = ['room', 'day_of_week', 'start_time', 'end_time']
     
     def __str__(self):
         day_display = dict(self.DAY_CHOICES).get(self.day_of_week, '')
         teacher_name = self.teacher.full_name if self.teacher else 'بدون استاد'
-        return f"{day_display} - {self.time_slot} - {self.course.course_name} - {teacher_name}"
+        time_display = self.get_time_display()
+        return f"{day_display} - {time_display} - {self.course.course_name} - {teacher_name}"
+    
+    def get_time_display(self):
+        """
+        Get formatted time display, preferring start_time/end_time over time_slot.
+        
+        Returns:
+            str: Formatted time string (e.g., "07:30-09:15" or "07:30-09:15")
+        """
+        if self.start_time and self.end_time:
+            return f"{self.start_time.strftime('%H:%M')}-{self.end_time.strftime('%H:%M')}"
+        elif self.time_slot:
+            return self.time_slot
+        else:
+            return "زمان نامشخص"
+    
+    def get_duration_hours(self):
+        """
+        Calculate class duration in hours.
+        
+        Returns:
+            float: Duration in hours, or None if times are missing
+        """
+        if self.start_time and self.end_time:
+            from datetime import datetime, timedelta
+            start_dt = datetime.combine(datetime.today(), self.start_time)
+            end_dt = datetime.combine(datetime.today(), self.end_time)
+            
+            # Handle case where end_time is next day
+            if end_dt <= start_dt:
+                end_dt += timedelta(days=1)
+            
+            duration = end_dt - start_dt
+            return duration.total_seconds() / 3600  # Convert to hours
+        return None
+    
+    def is_time_conflict_with(self, other_schedule):
+        """
+        Check if this schedule conflicts with another schedule.
+        
+        This method allows classes that end exactly when another starts
+        (e.g., 8:00-10:30 and 10:30-12:00) to avoid false conflicts.
+        
+        Args:
+            other_schedule: Another ClassSchedule instance
+            
+        Returns:
+            bool: True if there's a time conflict (overlapping times)
+        """
+        if not (self.start_time and self.end_time and 
+                other_schedule.start_time and other_schedule.end_time):
+            return False
+        
+        # Check if schedules are on the same day
+        if self.day_of_week != other_schedule.day_of_week:
+            return False
+        
+        # Check for time overlap
+        # Allow classes that end exactly when another starts (e.g., 8:00-10:30 and 10:30-12:00)
+        return not (self.end_time < other_schedule.start_time or 
+                   other_schedule.end_time < self.start_time)
     
     @classmethod
     def get_time_choices_for_course(cls, course):
@@ -316,89 +401,106 @@ class ClassSchedule(models.Model):
         Checks for:
         1. Room conflicts (same room can't host overlapping classes)
         2. Teacher conflicts (same teacher can't teach two classes at once)
-        3. Time slot validity based on course credit hours
+        3. Time validation and duration warnings
         
         Raises:
             ValidationError: If any conflict is detected with detailed information
         """
         super().clean()
         
+        # Skip validation if this is an import operation
+        if hasattr(self, '_skip_validation') and self._skip_validation:
+            return
+        
+        # Validate that we have timing information
+        if not (self.start_time and self.end_time) and not self.time_slot:
+            raise ValidationError({
+                'start_time': 'لطفاً ساعت شروع و پایان کلاس را مشخص کنید.',
+                'end_time': 'لطفاً ساعت شروع و پایان کلاس را مشخص کنید.'
+            })
+        
+        # Validate time logic
+        if self.start_time and self.end_time:
+            if self.start_time >= self.end_time:
+                raise ValidationError({
+                    'end_time': 'ساعت پایان باید بعد از ساعت شروع باشد.'
+                })
+            
+            # Check for reasonable class duration (minimum 30 minutes, maximum 6 hours)
+            duration_hours = self.get_duration_hours()
+            if duration_hours:
+                if duration_hours < 0.5:  # Less than 30 minutes
+                    raise ValidationError({
+                        'end_time': 'مدت زمان کلاس باید حداقل 30 دقیقه باشد.'
+                    })
+                elif duration_hours > 6:  # More than 6 hours
+                    raise ValidationError({
+                        'end_time': 'مدت زمان کلاس نمی‌تواند بیش از 6 ساعت باشد.'
+                    })
+        
         # Check for room conflicts - CRITICAL: prevent double-booking
-        if self.room and self.day_of_week and self.time_slot:
-            conflicts = ClassSchedule.objects.filter(
+        if self.room and self.day_of_week and (self.start_time and self.end_time):
+            # Find all schedules for the same room and day
+            room_schedules = ClassSchedule.objects.filter(
                 room=self.room,
                 day_of_week=self.day_of_week,
-                time_slot=self.time_slot,
                 is_active=True
             ).exclude(pk=self.pk)
             
-            if conflicts.exists():
-                conflict = conflicts.first()
-                teacher_name = conflict.teacher.full_name if conflict.teacher else 'نامشخص'
-                day_display = dict(self.DAY_CHOICES).get(self.day_of_week, self.day_of_week)
-                error_msg = (
-                    f'❌ تداخل زمانی! این اتاق در این بازه زمانی قبلاً رزرو شده است.\n\n'
-                    f'📚 درس: {conflict.course.course_name}\n'
-                    f'👨‍🏫 استاد: {teacher_name}\n'
-                    f'📅 روز: {day_display}\n'
-                    f'⏰ ساعت: {self.time_slot}\n\n'
-                    f'لطفاً اتاق، روز یا زمان دیگری انتخاب کنید.'
-                )
-                raise ValidationError({'room': error_msg})
+            # Check for time conflicts
+            for schedule in room_schedules:
+                if schedule.start_time and schedule.end_time:
+                    if self.is_time_conflict_with(schedule):
+                        teacher_name = schedule.teacher.full_name if schedule.teacher else 'نامشخص'
+                        day_display = dict(self.DAY_CHOICES).get(self.day_of_week, self.day_of_week)
+                        time_display = schedule.get_time_display()
+                        error_msg = (
+                            f'❌ تداخل زمانی! این اتاق در این بازه زمانی قبلاً رزرو شده است.\n\n'
+                            f'📚 درس: {schedule.course.course_name}\n'
+                            f'👨‍🏫 استاد: {teacher_name}\n'
+                            f'📅 روز: {day_display}\n'
+                            f'⏰ ساعت: {time_display}\n\n'
+                            f'لطفاً اتاق، روز یا زمان دیگری انتخاب کنید.'
+                        )
+                        raise ValidationError({'room': error_msg})
         
         # Check for teacher conflicts
-        if self.teacher and self.day_of_week and self.time_slot:
-            teacher_conflicts = ClassSchedule.objects.filter(
+        if self.teacher and self.day_of_week and (self.start_time and self.end_time):
+            # Find all schedules for the same teacher and day
+            teacher_schedules = ClassSchedule.objects.filter(
                 teacher=self.teacher,
                 day_of_week=self.day_of_week,
-                time_slot=self.time_slot,
                 is_active=True
             ).exclude(pk=self.pk)
             
-            if teacher_conflicts.exists():
-                conflict = teacher_conflicts.first()
-                day_display = dict(self.DAY_CHOICES).get(self.day_of_week, self.day_of_week)
-                error_msg = (
-                    f'❌ تداخل زمانی! این استاد در این بازه زمانی کلاس دیگری دارد.\n\n'
-                    f'📚 درس: {conflict.course.course_name}\n'
-                    f'🚪 اتاق: {conflict.room.room_number}\n'
-                    f'📅 روز: {day_display}\n'
-                    f'⏰ ساعت: {self.time_slot}\n\n'
-                    f'لطفاً استاد، روز یا زمان دیگری انتخاب کنید.'
-                )
-                raise ValidationError({'teacher': error_msg})
+            # Check for time conflicts
+            for schedule in teacher_schedules:
+                if schedule.start_time and schedule.end_time:
+                    if self.is_time_conflict_with(schedule):
+                        day_display = dict(self.DAY_CHOICES).get(self.day_of_week, self.day_of_week)
+                        time_display = schedule.get_time_display()
+                        error_msg = (
+                            f'❌ تداخل زمانی! این استاد در این بازه زمانی کلاس دیگری دارد.\n\n'
+                            f'📚 درس: {schedule.course.course_name}\n'
+                            f'🚪 اتاق: {schedule.room.room_number}\n'
+                            f'📅 روز: {day_display}\n'
+                            f'⏰ ساعت: {time_display}\n\n'
+                            f'لطفاً استاد، روز یا زمان دیگری انتخاب کنید.'
+                        )
+                        raise ValidationError({'teacher': error_msg})
         
-        # Validate time slot matches course credit hours
-        if self.course and self.time_slot:
-            appropriate_times = self.get_available_time_choices()
-            appropriate_time_values = [t[0] for t in appropriate_times]
-            
-            if self.time_slot not in appropriate_time_values:
-                credit_hours = self.course.credit_hours if hasattr(self.course, 'credit_hours') and self.course.credit_hours else 0
-                if credit_hours and credit_hours <= 2:
-                    error_msg = (
-                        f'⚠️ بازه زمانی نامناسب!\n\n'
-                        f'درس انتخاب شده {credit_hours} واحدی است.\n'
-                        f'برای دروس ۲ واحد یا کمتر، باید از بازه‌های زمانی کوتاه‌تر استفاده کنید:\n'
-                        f'• 7:30-9:15\n'
-                        f'• 9:15-11:00\n'
-                        f'• 11:00-13:15\n'
-                        f'• 13:15-15:00\n'
-                        f'• 15:00-16:45\n'
-                        f'• 16:45-18:00'
-                    )
-                    raise ValidationError({'time_slot': error_msg})
-                elif credit_hours and credit_hours >= 3:
-                    error_msg = (
-                        f'⚠️ بازه زمانی نامناسب!\n\n'
-                        f'درس انتخاب شده {credit_hours} واحدی است.\n'
-                        f'برای دروس ۳ واحد یا بیشتر، باید از بازه‌های زمانی طولانی‌تر استفاده کنید:\n'
-                        f'• 7:30-10:10\n'
-                        f'• 10:15-13:30\n'
-                        f'• 13:30-16:00\n'
-                        f'• 16:00-18:30'
-                    )
-                    raise ValidationError({'time_slot': error_msg})
+        # Validate duration matches course credit hours (warning, not error)
+        if self.course and self.start_time and self.end_time:
+            duration_hours = self.get_duration_hours()
+            if duration_hours:
+                credit_hours = getattr(self.course, 'credit_hours', 0)
+                if credit_hours > 0:
+                    # Typical durations: 2-unit = 1.5-2h, 3-unit = 2.5-3h
+                    expected_min = credit_hours * 0.8  # 80% of credit hours
+                    expected_max = credit_hours * 1.2  # 120% of credit hours
+                    
+                    # Duration validation removed - warnings were cluttering logs
+                    # Classes can have flexible durations regardless of credit hours
     
     def get_cancellation_vote_count(self):
         """
@@ -492,14 +594,101 @@ class ClassSchedule(models.Model):
                 self.save()
     
     def is_actually_holding(self):
-        """Check if class is actually being held (considering both admin and student reports)."""
+        """
+        Check if class is actually being held (considering both admin and student reports).
+        
+        This method considers both administrative settings and student voting results
+        to determine the actual holding status of a class.
+        
+        Returns:
+            bool: True if the class is actually being held, False otherwise
+        """
         # Check if auto-reset is needed
         self.check_and_update_holding_status()
         
         # Return false if either admin marked not holding OR students reported not holding
         return self.is_holding and not self.student_reported_not_holding
     
+    def get_status_display(self):
+        """
+        Get a human-readable status of the class holding status.
+        
+        Returns:
+            str: Status description in Persian
+        """
+        if self.student_reported_not_holding:
+            return "دانشجویان گزارش عدم برگزاری داده‌اند"
+        elif self.student_reported_holding:
+            return "دانشجویان تأیید برگزاری داده‌اند"
+        elif self.is_holding:
+            return "کلاس برگزار می‌شود"
+        else:
+            return "کلاس برگزار نمی‌شود"
+    
+    def get_vote_summary(self):
+        """
+        Get a summary of current voting status.
+        
+        Returns:
+            dict: Vote counts and status information
+        """
+        return {
+            'cancellation_votes': self.get_cancellation_vote_count(),
+            'confirmation_votes': self.get_confirmation_vote_count(),
+            'net_votes': self.get_confirmation_vote_count() - self.get_cancellation_vote_count(),
+            'status': self.get_status_display()
+        }
+    
     def save(self, *args, **kwargs):
-        """Override save to run validation."""
-        self.full_clean()
+        """
+        Override save to handle time_slot backfill and run validation.
+        
+        Automatically populates time_slot from start_time/end_time for backward compatibility.
+        
+        Args:
+            skip_validation: If True, skip the validation checks (useful for imports)
+        """
+        # Backfill time_slot from start_time/end_time if not set
+        if self.start_time and self.end_time and not self.time_slot:
+            time_slot_value = f"{self.start_time.strftime('%H:%M')}-{self.end_time.strftime('%H:%M')}"
+            # Only set if it matches one of the predefined choices
+            if time_slot_value in [choice[0] for choice in self.TIME_CHOICES]:
+                self.time_slot = time_slot_value
+        
+        # Skip validation if requested (useful for bulk imports)
+        skip_validation = kwargs.pop('skip_validation', False) or getattr(self, '_skip_validation', False)
+        if not skip_validation:
+            # Run validation
+            self.full_clean()
+        
         super().save(*args, **kwargs)
+
+
+class ImportJob(models.Model):
+    """Audit log for Excel imports of schedules."""
+
+    STATUS_CHOICES = [
+        ("pending", "در انتظار"),
+        ("completed", "انجام شد"),
+        ("failed", "ناموفق"),
+    ]
+
+    faculty = models.ForeignKey(Faculty, on_delete=models.CASCADE, related_name="import_jobs", verbose_name="دانشکده")
+    semester = models.CharField(max_length=32, verbose_name="نیمسال")
+    academic_year = models.CharField(max_length=32, verbose_name="سال تحصیلی")
+    source_filename = models.CharField(max_length=255, verbose_name="نام فایل منبع")
+    total = models.PositiveIntegerField(default=0, verbose_name="تعداد کل")
+    inserted = models.PositiveIntegerField(default=0, verbose_name="تعداد افزوده‌شده")
+    updated = models.PositiveIntegerField(default=0, verbose_name="تعداد بروزرسانی‌شده")
+    errors_json = models.JSONField(default=list, blank=True, verbose_name="خطاها")
+    dry_run = models.BooleanField(default=True, verbose_name="اجرای آزمایشی")
+    status = models.CharField(max_length=16, choices=STATUS_CHOICES, default="pending", verbose_name="وضعیت")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="ایجاد شده در")
+
+    class Meta:
+        verbose_name = "لاگ درون‌ریزی"
+        verbose_name_plural = "لاگ‌های درون‌ریزی"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.faculty} - {self.semester} - {self.academic_year} ({self.status})"

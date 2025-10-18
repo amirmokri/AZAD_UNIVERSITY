@@ -18,7 +18,7 @@ from django.contrib import messages
 from django.http import JsonResponse
 from django.template.response import TemplateResponse
 from django.views.decorators.csrf import csrf_exempt
-from .models import Faculty, Teacher, Course, Floor, Room, ClassSchedule, ClassCancellationVote, ClassConfirmationVote
+from .models import Faculty, Teacher, Course, Floor, Room, ClassSchedule, ClassCancellationVote, ClassConfirmationVote, ImportJob
 
 
 @admin.register(Faculty)
@@ -320,6 +320,7 @@ class RoomAdmin(admin.ModelAdmin):
 
 @admin.register(ClassSchedule)
 class ClassScheduleAdmin(admin.ModelAdmin):
+    change_list_template = 'admin/schedules/classschedule_changelist.html'
     """
     Admin configuration for ClassSchedule model.
     Main admin interface for managing class schedules.
@@ -332,7 +333,7 @@ class ClassScheduleAdmin(admin.ModelAdmin):
         'teacher',
         'room_info',
         'day_display',
-        'time_display',
+        'time_display_new',
         'is_holding_badge',
         'student_votes_display',
         'semester',
@@ -349,6 +350,7 @@ class ClassScheduleAdmin(admin.ModelAdmin):
             path('chart/day/<str:day>/floor/<int:floor>/', self.admin_site.admin_view(self.chart_view), name='classes_classschedule_chart_floor'),
             path('chart/save/', self.admin_site.admin_view(self.save_schedule_view), name='classes_classschedule_save'),
             path('chart/delete/', self.admin_site.admin_view(self.delete_schedule_view), name='classes_classschedule_delete'),
+            path('import-excel/', self.admin_site.admin_view(self.import_excel_view), name='classes_classschedule_import_excel'),
         ]
         return custom_urls + urls
     
@@ -357,11 +359,59 @@ class ClassScheduleAdmin(admin.ModelAdmin):
         extra_context = extra_context or {}
         extra_context['chart_url'] = reverse('admin:classes_classschedule_chart')
         return super().changelist_view(request, extra_context)
+
+    def import_excel_view(self, request):
+        """Upload form and execution for Excel import."""
+        from django import forms
+        from django.core.files.storage import default_storage
+        from django.core.files.base import ContentFile
+        from schedules.importers.ai_excel_importer import import_ai_excel
+
+        class ImportForm(forms.Form):
+            faculty = forms.ModelChoiceField(queryset=Faculty.objects.filter(is_active=True), label='دانشکده', required=True)
+            semester = forms.CharField(label='نیمسال', required=True)
+            academic_year = forms.CharField(label='سال تحصیلی', required=True)
+            excel = forms.FileField(label='فایل اکسل', required=True)
+            dry_run = forms.BooleanField(label='اجرای آزمایشی', required=False, initial=True)
+
+        context = {
+            **self.admin_site.each_context(request),
+            'title': 'درون‌ریزی از اکسل',
+            'opts': self.model._meta,
+        }
+
+        if request.method == 'POST':
+            form = ImportForm(request.POST, request.FILES)
+            if form.is_valid():
+                faculty = form.cleaned_data['faculty']
+                semester = form.cleaned_data['semester']
+                academic_year = form.cleaned_data['academic_year']
+                dry_run = form.cleaned_data.get('dry_run', True)
+                f = form.cleaned_data['excel']
+
+                # Save to media/imports/
+                save_path = default_storage.save(f"imports/{f.name}", ContentFile(f.read()))
+                # Execute importer synchronously
+                result = import_ai_excel(default_storage.path(save_path), faculty, semester, academic_year, dry_run)
+
+                prefix = '[Dry Run] ' if dry_run else ''
+                self.message_user(
+                    request,
+                    f"{prefix}درون‌ریزی انجام شد: جدید {result['inserted']}, بروزرسانی {result['updated']}, کل {result['total']}. خطاها: {len(result['errors'])}",
+                    level=messages.SUCCESS,
+                )
+                return JsonResponse({'success': True})
+        else:
+            form = ImportForm()
+
+        context['form'] = form
+        return TemplateResponse(request, 'admin/schedules/import_excel.html', context)
     
     list_filter = [
         'course__faculty',
         'day_of_week',
-        'time_slot',
+        'start_time',
+        'end_time',
         'is_holding',
         'is_active',
         'semester',
@@ -378,7 +428,7 @@ class ClassScheduleAdmin(admin.ModelAdmin):
         'room__room_number',
     ]
     
-    ordering = ['course__faculty', 'day_of_week', 'time_slot']
+    ordering = ['course__faculty', 'day_of_week', 'start_time']
     list_per_page = 50
     
     fieldsets = (
@@ -390,8 +440,8 @@ class ClassScheduleAdmin(admin.ModelAdmin):
             'fields': ('teacher', 'room')
         }),
         ('زمان‌بندی', {
-            'fields': ('day_of_week', 'time_slot'),
-            'description': 'روز و زمان برگزاری کلاس'
+            'fields': ('day_of_week', 'start_time', 'end_time', 'time_slot'),
+            'description': 'روز و زمان برگزاری کلاس (از ساعت شروع و پایان استفاده کنید)'
         }),
         ('دوره تحصیلی', {
             'fields': ('semester', 'academic_year'),
@@ -446,9 +496,31 @@ class ClassScheduleAdmin(admin.ModelAdmin):
     day_display.short_description = 'روز'
     
     def time_display(self, obj):
-        """Display time slot in Persian"""
+        """Display time slot in Persian (legacy)"""
         return obj.get_time_slot_display()
-    time_display.short_description = 'زمان'
+    time_display.short_description = 'زمان (قدیمی)'
+    
+    def time_display_new(self, obj):
+        """Display start and end time in HH:MM format"""
+        if obj.start_time and obj.end_time:
+            duration = obj.get_duration_hours() or 0
+            # Avoid {:.1f} in format_html (SafeString), format first then pass
+            duration_text = f"{duration:.1f}"
+            return format_html(
+                '<strong>{} - {}</strong><br/><small>مدت: {} ساعت</small>',
+                obj.start_time.strftime('%H:%M'),
+                obj.end_time.strftime('%H:%M'),
+                duration_text
+            )
+        elif obj.time_slot:
+            return format_html(
+                '<span style="color: #666;">{}</span><br/><small>قدیمی</small>',
+                obj.time_slot
+            )
+        else:
+            return format_html('<span style="color: red;">زمان نامشخص</span>')
+    time_display_new.short_description = 'زمان'
+    time_display_new.admin_order_field = 'start_time'
     
     def is_holding_badge(self, obj):
         """Display holding status considering both admin setting and student votes"""
@@ -527,6 +599,18 @@ class ClassScheduleAdmin(admin.ModelAdmin):
         # Flatten all time slots for compatibility
         all_time_slots = ClassSchedule.TIME_CHOICES_2_OR_LESS + ClassSchedule.TIME_CHOICES_3_OR_MORE
         
+        # Get all unique time ranges from existing schedules (for dynamic chart)
+        existing_times = set()
+        for schedule in schedules:
+            if schedule.start_time and schedule.end_time:
+                time_range = f"{schedule.start_time.strftime('%H:%M')}-{schedule.end_time.strftime('%H:%M')}"
+                existing_times.add(time_range)
+            elif schedule.time_slot:
+                existing_times.add(schedule.time_slot)
+        
+        # Sort existing times for display
+        sorted_existing_times = sorted(list(existing_times))
+        
         # Get all rooms for the selected floor or all floors
         if floor:
             rooms = Room.objects.filter(floor__floor_number=floor, is_active=True).order_by('room_number')
@@ -555,6 +639,7 @@ class ClassScheduleAdmin(admin.ModelAdmin):
             'all_time_slots': all_time_slots,
             'time_slots_2_or_less': time_slots_2_or_less,
             'time_slots_3_or_more': time_slots_3_or_more,
+            'sorted_existing_times': sorted_existing_times,
             'selected_day': day,
             'selected_floor': floor,
             'courses': courses,
@@ -641,6 +726,8 @@ class ClassScheduleAdmin(admin.ModelAdmin):
                 room_id = request.POST.get('room_id')
                 day_of_week = request.POST.get('day_of_week')
                 time_slot = request.POST.get('time_slot')
+                start_time = request.POST.get('start_time')
+                end_time = request.POST.get('end_time')
                 course_id = request.POST.get('course')
                 teacher_id = request.POST.get('teacher')
                 semester = request.POST.get('semester', '')
@@ -652,31 +739,53 @@ class ClassScheduleAdmin(admin.ModelAdmin):
                     # Update existing schedule with conflict check
                     schedule = ClassSchedule.objects.get(id=schedule_id)
                     # Prevent moving it into a full line by credit bucket if time/room/day changes
-                    intended_time_slot = time_slot or schedule.time_slot
                     intended_room_id = room_id or schedule.room_id
                     intended_day = day_of_week or schedule.day_of_week
                     intended_course_id = course_id or schedule.course_id
                     intended_course = Course.objects.get(id=intended_course_id)
                     intended_credit = intended_course.credit_hours
 
-                    existing_schedules = ClassSchedule.objects.filter(
-                        room_id=intended_room_id,
-                        day_of_week=intended_day,
-                        time_slot=intended_time_slot,
-                        is_active=True
-                    ).exclude(pk=schedule.id).select_related('course', 'teacher', 'room', 'room__floor')
-
-                    conflict = None
-                    if intended_credit <= 2:
+                    # Use new time fields for conflict checking
+                    if start_time and end_time:
+                        from datetime import time
+                        intended_start = time.fromisoformat(start_time)
+                        intended_end = time.fromisoformat(end_time)
+                        
+                        # Check for time conflicts using new fields
+                        existing_schedules = ClassSchedule.objects.filter(
+                            room_id=intended_room_id,
+                            day_of_week=intended_day,
+                            is_active=True
+                        ).exclude(pk=schedule.id).select_related('course', 'teacher', 'room', 'room__floor')
+                        
+                        conflict = None
                         for es in existing_schedules:
-                            if es.course.credit_hours <= 2:
-                                conflict = es
-                                break
+                            if es.start_time and es.end_time:
+                                # Check for time overlap
+                                if not (intended_end <= es.start_time or es.end_time <= intended_start):
+                                    conflict = es
+                                    break
                     else:
-                        for es in existing_schedules:
-                            if es.course.credit_hours >= 3:
-                                conflict = es
-                                break
+                        # Fallback to old time_slot logic
+                        intended_time_slot = time_slot or schedule.time_slot
+                        existing_schedules = ClassSchedule.objects.filter(
+                            room_id=intended_room_id,
+                            day_of_week=intended_day,
+                            time_slot=intended_time_slot,
+                            is_active=True
+                        ).exclude(pk=schedule.id).select_related('course', 'teacher', 'room', 'room__floor')
+
+                        conflict = None
+                        if intended_credit <= 2:
+                            for es in existing_schedules:
+                                if es.course.credit_hours <= 2:
+                                    conflict = es
+                                    break
+                        else:
+                            for es in existing_schedules:
+                                if es.course.credit_hours >= 3:
+                                    conflict = es
+                                    break
 
                     if conflict:
                         return JsonResponse({
@@ -705,8 +814,19 @@ class ClassScheduleAdmin(admin.ModelAdmin):
                         schedule.room_id = room_id
                     if day_of_week:
                         schedule.day_of_week = day_of_week
-                    if time_slot:
+                    
+                    # Update time fields - prefer new fields over legacy
+                    if start_time and end_time:
+                        from datetime import time
+                        schedule.start_time = time.fromisoformat(start_time)
+                        schedule.end_time = time.fromisoformat(end_time)
+                        # Auto-populate time_slot if it matches a predefined choice
+                        time_slot_value = f"{start_time}-{end_time}"
+                        if time_slot_value in [choice[0] for choice in ClassSchedule.TIME_CHOICES]:
+                            schedule.time_slot = time_slot_value
+                    elif time_slot:
                         schedule.time_slot = time_slot
+                    
                     schedule.semester = semester
                     schedule.academic_year = academic_year
                     schedule.is_holding = is_holding
@@ -791,18 +911,31 @@ class ClassScheduleAdmin(admin.ModelAdmin):
                         })
                     
                     # Create new schedule
-                    ClassSchedule.objects.create(
-                        room_id=room_id,
-                        day_of_week=day_of_week,
-                        time_slot=time_slot,
-                        course_id=course_id,
-                        teacher_id=teacher_id,
-                        semester=semester,
-                        academic_year=academic_year,
-                        is_holding=is_holding,
-                        notes=notes,
-                        is_active=True
-                    )
+                    schedule_data = {
+                        'room_id': room_id,
+                        'day_of_week': day_of_week,
+                        'course_id': course_id,
+                        'teacher_id': teacher_id,
+                        'semester': semester,
+                        'academic_year': academic_year,
+                        'is_holding': is_holding,
+                        'notes': notes,
+                        'is_active': True
+                    }
+                    
+                    # Add time fields - prefer new fields over legacy
+                    if start_time and end_time:
+                        from datetime import time
+                        schedule_data['start_time'] = time.fromisoformat(start_time)
+                        schedule_data['end_time'] = time.fromisoformat(end_time)
+                        # Auto-populate time_slot if it matches a predefined choice
+                        time_slot_value = f"{start_time}-{end_time}"
+                        if time_slot_value in [choice[0] for choice in ClassSchedule.TIME_CHOICES]:
+                            schedule_data['time_slot'] = time_slot_value
+                    elif time_slot:
+                        schedule_data['time_slot'] = time_slot
+                    
+                    ClassSchedule.objects.create(**schedule_data)
                 
                 return JsonResponse({'success': True})
             except Exception as e:
@@ -885,3 +1018,22 @@ class ClassConfirmationVoteAdmin(admin.ModelAdmin):
 admin.site.site_header = 'دانشگاه آزاد اسلامی واحد کرج - پنل مدیریت'
 admin.site.site_title = 'مدیریت کلاس‌ها'
 admin.site.index_title = 'خوش آمدید به پنل مدیریت'
+
+
+@admin.register(ImportJob)
+class ImportJobAdmin(admin.ModelAdmin):
+    list_display = ['faculty', 'semester', 'academic_year', 'source_filename', 'total', 'inserted', 'updated', 'errors_count', 'dry_run', 'status', 'created_at']
+    list_filter = ['faculty', 'semester', 'academic_year', 'dry_run', 'status']
+    search_fields = ['source_filename']
+    readonly_fields = ['faculty', 'semester', 'academic_year', 'source_filename', 'total', 'inserted', 'updated', 'errors_json', 'dry_run', 'status', 'created_at']
+    ordering = ['-created_at']
+    
+    def errors_count(self, obj):
+        if obj.errors_json:
+            count = len(obj.errors_json)
+            return format_html(
+                '<span style="color: red; font-weight: bold;">{} خطا</span>',
+                count
+            )
+        return format_html('<span style="color: green;">بدون خطا</span>')
+    errors_count.short_description = "تعداد خطاها"

@@ -78,7 +78,73 @@
     }
 }
 
-/* Day Card - Compact Design */
+/* Day Card Container - New Design */
+.day-card-container {
+    background: white;
+    padding: 25px 20px;
+    border-radius: 18px;
+    border: 2px solid #e9ecef;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.day-card-container:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 15px 40px rgba(102, 126, 234, 0.25);
+    border-color: #764ba2;
+}
+
+.day-card-header {
+    text-align: center;
+    margin-bottom: 20px;
+    border-bottom: 1px solid #e9ecef;
+    padding-bottom: 15px;
+}
+
+/* Time Slots */
+.time-slots {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.time-slot {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 12px 15px;
+    border-radius: 12px;
+    text-decoration: none;
+    transition: all 0.3s ease;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-weight: 600;
+}
+
+.time-slot:hover {
+    background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+    color: white;
+    text-decoration: none;
+    transform: translateX(5px);
+}
+
+.time-display {
+    font-size: 1rem;
+}
+
+.class-count {
+    font-size: 0.9rem;
+    opacity: 0.9;
+}
+
+.no-classes {
+    text-align: center;
+    color: #6c757d;
+    font-style: italic;
+    padding: 20px;
+}
+
+/* Legacy Day Card - Keep for compatibility */
 .day-card {
     background: white;
     padding: 25px 20px;
@@ -356,20 +422,36 @@
         <h2 class="section-title">انتخاب روز هفته</h2>
         <div class="day-grid">
             {% for day in days %}
-            <a href="{% url 'classes:time_selection' faculty.id day.key %}" class="day-card">
-                <div class="day-icon">
-                    {% if day.key == 'saturday' %}🌅
-                    {% elif day.key == 'sunday' %}☀️
-                    {% elif day.key == 'monday' %}🌤️
-                    {% elif day.key == 'tuesday' %}⛅
-                    {% elif day.key == 'wednesday' %}🌞
-                    {% elif day.key == 'thursday' %}🌙
-                    {% else %}🌟
-                    {% endif %}
+            <div class="day-card-container">
+                <div class="day-card-header">
+                    <div class="day-icon">
+                        {% if day.key == 'saturday' %}🌅
+                        {% elif day.key == 'sunday' %}☀️
+                        {% elif day.key == 'monday' %}🌤️
+                        {% elif day.key == 'tuesday' %}⛅
+                        {% elif day.key == 'wednesday' %}🌞
+                        {% elif day.key == 'thursday' %}🌙
+                        {% else %}🌟
+                        {% endif %}
+                    </div>
+                    <h3 class="day-name">{{ day.name }}</h3>
                 </div>
-                <h3 class="day-name">{{ day.name }}</h3>
-                <div class="day-arrow">◀</div>
-            </a>
+                
+                {% if day.time_slots %}
+                    <div class="time-slots">
+                        {% for time_slot in day.time_slots %}
+                        <a href="{% url 'classes:floor_view' faculty.id day.key time_slot.start_time|time:'H:i' %}" class="time-slot">
+                            <span class="time-display">{{ time_slot.start_display }} - {{ time_slot.end_display }}</span>
+                            <span class="class-count">{{ time_slot.count }} کلاس</span>
+                        </a>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="no-classes">
+                        <p>هیچ کلاسی در این روز برنامه‌ریزی نشده است</p>
+                    </div>
+                {% endif %}
+            </div>
             {% endfor %}
         </div>
     </div>

@@ -19,7 +19,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from .models import Faculty, Teacher, Course, Floor, Room, ClassSchedule
 from .serializers import (
     FacultySerializer, TeacherSerializer, CourseSerializer, FloorSerializer,
-    RoomSerializer, ClassScheduleSerializer
+    RoomSerializer, ClassScheduleSerializer, ClassScheduleListSerializer
 )
 
 
@@ -93,35 +93,66 @@ class ClassScheduleViewSet(viewsets.ReadOnlyModelViewSet):
     """
     API endpoint for class schedules.
     Supports listing and retrieving schedules with multiple filters.
+    Uses new start_time/end_time fields as primary timing source.
     """
     queryset = ClassSchedule.objects.filter(is_active=True).select_related(
         'teacher', 'course', 'course__faculty', 'room', 'room__floor'
     )
     serializer_class = ClassScheduleSerializer
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['day_of_week', 'time_slot', 'teacher', 'course', 'room', 'course__faculty']
+    filterset_fields = [
+        'day_of_week', 'start_time', 'end_time', 'time_slot',  # time_slot for backward compatibility
+        'teacher', 'course', 'room', 'course__faculty', 'is_holding'
+    ]
     search_fields = ['course__course_name', 'course__faculty__faculty_name', 'teacher__full_name', 'room__room_number']
-    ordering = ['course__faculty', 'day_of_week', 'time_slot']
+    ordering = ['course__faculty', 'day_of_week', 'start_time']
+    
+    def get_serializer_class(self):
+        """Use lightweight serializer for list views"""
+        if self.action == 'list':
+            return ClassScheduleListSerializer
+        return ClassScheduleSerializer
     
     @action(detail=False, methods=['get'])
     def by_day_and_time(self, request):
         """
         Custom endpoint to get schedules filtered by day and time.
         Usage: /api/schedules/by_day_and_time/?day=saturday&time=08:00
+        Supports both new time fields and legacy time_slot.
         """
         day = request.query_params.get('day')
         time = request.query_params.get('time')
+        start_time = request.query_params.get('start_time')
+        end_time = request.query_params.get('end_time')
         
-        if not day or not time:
+        if not day:
             return Response({
-                'error': 'روز و زمان الزامی است.',
+                'error': 'روز الزامی است.',
                 'example': '/api/schedules/by_day_and_time/?day=saturday&time=08:00'
             }, status=400)
         
-        schedules = self.get_queryset().filter(
-            day_of_week=day,
-            time_slot=time
-        )
+        schedules = self.get_queryset().filter(day_of_week=day)
+        
+        # Use new time fields if provided
+        if start_time and end_time:
+            from datetime import time
+            try:
+                start = time.fromisoformat(start_time)
+                end = time.fromisoformat(end_time)
+                schedules = schedules.filter(start_time=start, end_time=end)
+            except ValueError:
+                return Response({
+                    'error': 'فرمت زمان نامعتبر است. از فرمت HH:MM استفاده کنید.',
+                    'example': '/api/schedules/by_day_and_time/?day=saturday&start_time=08:00&end_time=10:00'
+                }, status=400)
+        elif time:
+            # Legacy time_slot support
+            schedules = schedules.filter(time_slot=time)
+        else:
+            return Response({
+                'error': 'زمان الزامی است. از start_time/end_time یا time استفاده کنید.',
+                'example': '/api/schedules/by_day_and_time/?day=saturday&start_time=08:00&end_time=10:00'
+            }, status=400)
         
         serializer = self.get_serializer(schedules, many=True)
         return Response(serializer.data)
@@ -144,7 +175,7 @@ class ClassScheduleViewSet(viewsets.ReadOnlyModelViewSet):
         schedules = self.get_queryset().filter(
             day_of_week=day,
             teacher__full_name__icontains=teacher_name
-        ).order_by('time_slot')
+        ).order_by('start_time', 'time_slot')  # Order by new time fields first
         
         if not schedules.exists():
             return Response({
@@ -167,5 +198,51 @@ class ClassScheduleViewSet(viewsets.ReadOnlyModelViewSet):
             'day': day,
             'total_classes': schedules.count(),
             'time_slots': grouped_data,
+            'results': serializer.data
+        })
+    
+    @action(detail=False, methods=['get'])
+    def by_time_range(self, request):
+        """
+        Custom endpoint to get schedules within a time range.
+        Usage: /api/schedules/by_time_range/?day=saturday&start_time=08:00&end_time=12:00
+        """
+        day = request.query_params.get('day')
+        start_time = request.query_params.get('start_time')
+        end_time = request.query_params.get('end_time')
+        
+        if not day or not start_time or not end_time:
+            return Response({
+                'error': 'روز، ساعت شروع و ساعت پایان الزامی است.',
+                'example': '/api/schedules/by_time_range/?day=saturday&start_time=08:00&end_time=12:00'
+            }, status=400)
+        
+        try:
+            from datetime import time
+            start = time.fromisoformat(start_time)
+            end = time.fromisoformat(end_time)
+        except ValueError:
+            return Response({
+                'error': 'فرمت زمان نامعتبر است. از فرمت HH:MM استفاده کنید.',
+                'example': '/api/schedules/by_time_range/?day=saturday&start_time=08:00&end_time=12:00'
+            }, status=400)
+        
+        # Find schedules that overlap with the time range
+        schedules = self.get_queryset().filter(
+            day_of_week=day,
+            start_time__isnull=False,
+            end_time__isnull=False
+        ).filter(
+            # Overlap condition: not (end_time <= start OR end <= start_time)
+            # Which means: start_time < end AND start < end_time
+            start_time__lt=end,
+            end_time__gt=start
+        ).order_by('start_time')
+        
+        serializer = self.get_serializer(schedules, many=True)
+        return Response({
+            'day': day,
+            'time_range': f'{start_time} - {end_time}',
+            'total_classes': schedules.count(),
             'results': serializer.data
         })

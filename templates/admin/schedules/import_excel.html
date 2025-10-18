@@ -1,0 +1,21 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block content %}
+<div class="module">
+  <h2>درون‌ریزی برنامه‌ها از اکسل</h2>
+  <form method="post" enctype="multipart/form-data" style="max-width:600px;">
+    {% csrf_token %}
+    <div class="form-row">{{ form.faculty.label_tag }} {{ form.faculty }}</div>
+    <div class="form-row">{{ form.semester.label_tag }} {{ form.semester }}</div>
+    <div class="form-row">{{ form.academic_year.label_tag }} {{ form.academic_year }}</div>
+    <div class="form-row">{{ form.excel.label_tag }} {{ form.excel }}</div>
+    <div class="form-row">{{ form.dry_run }} {{ form.dry_run.label_tag }}</div>
+    <div class="submit-row">
+      <input type="submit" class="default" value="اجرای درون‌ریزی">
+    </div>
+  </form>
+</div>
+{% endblock %}
+
+

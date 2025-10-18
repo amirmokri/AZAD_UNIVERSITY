@@ -144,23 +144,35 @@ class Command(BaseCommand):
         self.stdout.write('\nایجاد برنامه‌های کلاسی نمونه...')
         schedule_count = 0
         
-        # Sample schedules for Saturday
+        # Sample schedules with new time fields
         days = ['saturday', 'sunday', 'monday', 'tuesday', 'wednesday']
-        times = ['08:00', '10:30', '13:30', '16:30']
+        # New time format: (start_time, end_time) tuples
+        time_slots = [
+            ('08:00', '09:30'),
+            ('10:00', '11:30'),
+            ('13:30', '15:00'),
+            ('15:30', '17:00'),
+        ]
         
         rooms = Room.objects.filter(room_type='classroom', is_active=True)[:20]
         
         for idx, room in enumerate(rooms):
             day = days[idx % len(days)]
-            time = times[idx % len(times)]
+            start_time_str, end_time_str = time_slots[idx % len(time_slots)]
             teacher = teachers[idx % len(teachers)]
             course = courses[idx % len(courses)]
+            
+            # Convert string times to time objects
+            from datetime import time as time_obj
+            start_time = time_obj.fromisoformat(start_time_str)
+            end_time = time_obj.fromisoformat(end_time_str)
             
             try:
                 schedule, created = ClassSchedule.objects.get_or_create(
                     room=room,
                     day_of_week=day,
-                    time_slot=time,
+                    start_time=start_time,
+                    end_time=end_time,
                     defaults={
                         'teacher': teacher,
                         'course': course,

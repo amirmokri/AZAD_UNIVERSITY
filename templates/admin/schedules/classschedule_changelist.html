@@ -1,0 +1,14 @@
+{% extends "admin/change_list.html" %}
+{% load static %}
+
+{% block object-tools-items %}
+    <li>
+        <a href="{% url 'admin:classes_classschedule_import_excel' %}" class="addlink">درون‌ریزی از اکسل</a>
+    </li>
+    <li>
+        <a href="{% url 'admin:classes_classschedule_chart' %}" class="addlink" style="background: #28a745;">📊 نمودار برنامه کلاسی</a>
+    </li>
+    {{ block.super }}
+{% endblock %}
+
+
