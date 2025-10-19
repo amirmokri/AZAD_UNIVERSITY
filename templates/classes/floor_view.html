@@ -583,47 +583,84 @@
     margin-top: 8px;
 }
 
-/* Vote Buttons - Compact */
-.vote-button {
-    width: 100%;
-    padding: 10px;
-    border-radius: 10px;
-    font-weight: 700;
+/* Admin Controls */
+.admin-controls {
+    margin-top: 8px;
+    padding: 8px;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-radius: 8px;
+    border: 1px solid #dee2e6;
+}
+
+.admin-buttons {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 4px;
+}
+
+.admin-btn {
+    flex: 1;
+    padding: 8px 10px;
+    border: none;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
     cursor: pointer;
-    transition: all 0.3s ease;
-    font-family: 'Vazirmatn', sans-serif;
-    font-size: 0.85rem;
+    transition: all 0.2s ease;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
-    border: 2px solid;
+    gap: 4px;
+    font-family: 'Vazirmatn', sans-serif;
 }
 
-/* Cancellation Button (Red Theme) */
-.vote-cancel {
-    background: white;
-    color: #f44336;
-    border-color: #f44336;
+.admin-btn.hold-btn {
+    background: linear-gradient(135deg, #e8f5e8 0%, #c8e6c9 100%);
+    color: #2e7d32;
+    border: 1px solid #4caf50;
 }
 
-.vote-cancel:hover:not(:disabled) {
-    background: #f44336;
+.admin-btn.hold-btn:hover {
+    background: linear-gradient(135deg, #c8e6c9 0%, #a5d6a7 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3);
+}
+
+.admin-btn.hold-btn.active {
+    background: linear-gradient(135deg, #4caf50 0%, #45a049 100%);
     color: white;
-    transform: scale(1.02);
+    box-shadow: 0 2px 8px rgba(76, 175, 80, 0.4);
 }
 
-/* Confirmation Button (Green Theme) */
-.vote-confirm {
-    background: white;
-    color: #4CAF50;
-    border-color: #4CAF50;
+.admin-btn.not-hold-btn {
+    background: linear-gradient(135deg, #fff3e0 0%, #ffcc02 100%);
+    color: #f57c00;
+    border: 1px solid #ff9800;
 }
 
-.vote-confirm:hover:not(:disabled) {
-    background: #4CAF50;
+.admin-btn.not-hold-btn:hover {
+    background: linear-gradient(135deg, #ffcc02 0%, #ffb300 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(255, 152, 0, 0.3);
+}
+
+.admin-btn.not-hold-btn.active {
+    background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
     color: white;
-    transform: scale(1.02);
+    box-shadow: 0 2px 8px rgba(255, 152, 0, 0.4);
+}
+
+.admin-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none !important;
+}
+
+.admin-info {
+    text-align: center;
+    font-size: 9px;
+    color: #6c757d;
+    font-style: italic;
 }
 
 @media (max-width: 768px) {
@@ -1061,28 +1098,26 @@
                                         {% endif %}
                                     </div>
                                     
-                                    <!-- Vote Buttons -->
-                                    <div class="voting-section">
-                                        <button class="vote-button vote-cancel" 
-                                                data-schedule-id="{{ room_info.schedule.id }}"
-                                                onclick="voteForCancellation(this, {{ room_info.schedule.id }})">
-                                            🚫 برگزار نمی‌شود
-                                        </button>
-                                        <div class="vote-count cancel-count">
-                                            <span id="cancel-count-{{ room_info.schedule.id }}">{{ room_info.schedule.get_cancellation_vote_count }}</span> رای
+                                    <!-- Admin Controls -->
+                                    {% if user.is_staff %}
+                                    <div class="admin-controls">
+                                        <div class="admin-buttons">
+                                            <button class="admin-btn hold-btn {% if room_info.schedule.is_holding %}active{% endif %}" 
+                                                    onclick="toggleClassHolding({{ room_info.schedule.id }}, true)"
+                                                    title="علامت‌گذاری به عنوان برگزار شونده">
+                                                ✅ برگزار می‌شود
+                                            </button>
+                                            <button class="admin-btn not-hold-btn {% if not room_info.schedule.is_holding %}active{% endif %}" 
+                                                    onclick="toggleClassHolding({{ room_info.schedule.id }}, false)"
+                                                    title="علامت‌گذاری به عنوان برگزار نشونده">
+                                                ⏸️ برگزار نمی‌شود
+                                            </button>
+                                        </div>
+                                        <div class="admin-info">
+                                            <small>مدیریت وضعیت کلاس</small>
                                         </div>
                                     </div>
-                                    
-                                    <div class="voting-section">
-                                        <button class="vote-button vote-confirm" 
-                                                data-schedule-id="{{ room_info.schedule.id }}"
-                                                onclick="voteForConfirmation(this, {{ room_info.schedule.id }})">
-                                            ✅ برگزار می‌شود
-                                        </button>
-                                        <div class="vote-count confirm-count">
-                                            <span id="confirm-count-{{ room_info.schedule.id }}">{{ room_info.schedule.get_confirmation_vote_count }}</span> رای
-                                        </div>
-                                    </div>
+                                    {% endif %}
                                 </div>
                             {% else %}
                                 <div class="empty-room">
@@ -1147,28 +1182,26 @@
                                                 {% endif %}
                                             </div>
                                     
-                                    <!-- Vote Buttons -->
-                                    <div class="voting-section">
-                                        <button class="vote-button vote-cancel" 
-                                                data-schedule-id="{{ room_info.schedule.id }}"
-                                                onclick="voteForCancellation(this, {{ room_info.schedule.id }})">
-                                            🚫 برگزار نمی‌شود
-                                        </button>
-                                        <div class="vote-count cancel-count">
-                                            <span id="cancel-count-{{ room_info.schedule.id }}">{{ room_info.schedule.get_cancellation_vote_count }}</span> رای
+                                    <!-- Admin Controls -->
+                                    {% if user.is_staff %}
+                                    <div class="admin-controls">
+                                        <div class="admin-buttons">
+                                            <button class="admin-btn hold-btn {% if room_info.schedule.is_holding %}active{% endif %}" 
+                                                    onclick="toggleClassHolding({{ room_info.schedule.id }}, true)"
+                                                    title="علامت‌گذاری به عنوان برگزار شونده">
+                                                ✅ برگزار می‌شود
+                                            </button>
+                                            <button class="admin-btn not-hold-btn {% if not room_info.schedule.is_holding %}active{% endif %}" 
+                                                    onclick="toggleClassHolding({{ room_info.schedule.id }}, false)"
+                                                    title="علامت‌گذاری به عنوان برگزار نشونده">
+                                                ⏸️ برگزار نمی‌شود
+                                            </button>
+                                        </div>
+                                        <div class="admin-info">
+                                            <small>مدیریت وضعیت کلاس</small>
                                         </div>
                                     </div>
-                                    
-                                    <div class="voting-section">
-                                        <button class="vote-button vote-confirm" 
-                                                data-schedule-id="{{ room_info.schedule.id }}"
-                                                onclick="voteForConfirmation(this, {{ room_info.schedule.id }})">
-                                            ✅ برگزار می‌شود
-                                        </button>
-                                        <div class="vote-count confirm-count">
-                                            <span id="confirm-count-{{ room_info.schedule.id }}">{{ room_info.schedule.get_confirmation_vote_count }}</span> رای
-                                        </div>
-                                            </div>
+                                    {% endif %}
                                         </div>
                                     {% else %}
                                         <div class="empty-room">
@@ -1193,149 +1226,104 @@
 </section>
 
 <script>
+// Set user staff status for JavaScript
+window.isUserStaff = {{ user.is_staff|yesno:"true,false" }};
+
 /**
- * Voting functionality for class cancellation and confirmation
- * Students can vote whether a class will be held or not
+ * Admin functionality for class holding status management
+ * Only available to staff users
  */
 
-// Vote that class will NOT be held
-function voteForCancellation(button, scheduleId) {
-    // Disable button to prevent double-clicking
-    button.disabled = true;
-    const originalText = button.textContent;
-    button.textContent = '⏳ در حال ثبت...';
+// Check if user is staff
+function isUserStaff() {
+    return window.isUserStaff || false;
+}
+
+// Toggle class holding status (admin only)
+function toggleClassHolding(scheduleId, isHolding) {
+    // Check if user is staff
+    if (!isUserStaff()) {
+        showNotification('error', 'شما مجاز به انجام این عمل نیستید');
+        return;
+    }
     
-    // Send cancellation vote to server
-    fetch('{% url "classes:vote_cancellation" %}', {
+    // Disable all admin buttons for this schedule
+    const adminButtons = document.querySelectorAll(`[onclick*="${scheduleId}"]`);
+    adminButtons.forEach(btn => btn.disabled = true);
+    
+    const originalTexts = {};
+    adminButtons.forEach(btn => {
+        originalTexts[btn.className] = btn.textContent;
+        btn.textContent = '⏳ در حال بروزرسانی...';
+    });
+    
+    fetch('{% url "classes:admin_toggle_holding" %}', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
         },
         body: JSON.stringify({
-            schedule_id: scheduleId
+            'schedule_id': scheduleId,
+            'is_holding': isHolding
         })
     })
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            // Update cancel vote count
-            const cancelCountElement = document.getElementById(`cancel-count-${scheduleId}`);
-            if (cancelCountElement) {
-                cancelCountElement.textContent = data.vote_count;
-            }
+            // Update button states
+            updateAdminButtonStates(scheduleId, isHolding);
             
-            // Update confirm vote count (reduced by 1 due to balancing)
-            if (data.confirm_vote_count !== undefined) {
-                const confirmCountElement = document.getElementById(`confirm-count-${scheduleId}`);
-                if (confirmCountElement) {
-                    confirmCountElement.textContent = data.confirm_vote_count;
-                }
-            }
-            
-            // Update button state
-            button.classList.add('voted');
-            button.textContent = '✓ ثبت شد';
+            // Update room card status
+            updateRoomCardStatus(scheduleId, isHolding);
             
             // Show success message
             showNotification('success', data.message);
-            
-            // If threshold reached, reload page to show updated status
-            if (data.threshold_reached) {
-                setTimeout(() => {
-                    location.reload();
-                }, 2000);
-            }
         } else {
-            // Re-enable button
-            button.disabled = false;
-            button.textContent = originalText;
-            
-            // Show error message
-            if (data.already_voted) {
-                button.classList.add('voted');
-                button.textContent = '✓ قبلاً رای داده‌اید';
-                showNotification('info', 'شما قبلاً رای داده‌اید');
-            } else {
-                showNotification('error', data.error || 'خطا در ثبت رای');
-            }
+            showNotification('error', data.error || 'خطا در بروزرسانی وضعیت کلاس');
         }
     })
     .catch(error => {
         console.error('Error:', error);
-        button.disabled = false;
-        button.textContent = originalText;
         showNotification('error', 'خطا در ارتباط با سرور');
+    })
+    .finally(() => {
+        // Re-enable buttons
+        adminButtons.forEach(btn => {
+            btn.disabled = false;
+            btn.textContent = originalTexts[btn.className];
+        });
     });
 }
 
-// Vote that class WILL be held
-function voteForConfirmation(button, scheduleId) {
-    // Disable button to prevent double-clicking
-    button.disabled = true;
-    const originalText = button.textContent;
-    button.textContent = '⏳ در حال ثبت...';
+// Update admin button states
+function updateAdminButtonStates(scheduleId, isHolding) {
+    const holdBtn = document.querySelector(`[onclick*="toggleClassHolding(${scheduleId}, true)"]`);
+    const notHoldBtn = document.querySelector(`[onclick*="toggleClassHolding(${scheduleId}, false)"]`);
     
-    // Send confirmation vote to server
-    fetch('{% url "classes:vote_confirmation" %}', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            schedule_id: scheduleId
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            // Update confirm vote count
-            const confirmCountElement = document.getElementById(`confirm-count-${scheduleId}`);
-            if (confirmCountElement) {
-                confirmCountElement.textContent = data.vote_count;
-            }
-            
-            // Update cancel vote count (reduced by 1 due to balancing)
-            if (data.cancel_vote_count !== undefined) {
-                const cancelCountElement = document.getElementById(`cancel-count-${scheduleId}`);
-                if (cancelCountElement) {
-                    cancelCountElement.textContent = data.cancel_vote_count;
-                }
-            }
-            
-            // Update button state
-            button.classList.add('voted');
-            button.textContent = '✓ ثبت شد';
-            
-            // Show success message
-            showNotification('success', data.message);
-            
-            // If threshold reached, reload page to show updated status
-            if (data.threshold_reached) {
-                setTimeout(() => {
-                    location.reload();
-                }, 2000);
-            }
+    if (holdBtn && notHoldBtn) {
+        if (isHolding) {
+            holdBtn.classList.add('active');
+            notHoldBtn.classList.remove('active');
         } else {
-            // Re-enable button
-            button.disabled = false;
-            button.textContent = originalText;
-            
-            // Show error message
-            if (data.already_voted) {
-                button.classList.add('voted');
-                button.textContent = '✓ قبلاً رای داده‌اید';
-                showNotification('info', 'شما قبلاً رای داده‌اید');
-            } else {
-                showNotification('error', data.error || 'خطا در ثبت رای');
-            }
+            holdBtn.classList.remove('active');
+            notHoldBtn.classList.add('active');
         }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        button.disabled = false;
-        button.textContent = originalText;
-        showNotification('error', 'خطا در ارتباط با سرور');
-    });
+    }
+}
+
+// Update room card status
+function updateRoomCardStatus(scheduleId, isHolding) {
+    const roomCard = document.querySelector(`[data-schedule-id="${scheduleId}"]`)?.closest('.room-card');
+    if (roomCard) {
+        if (isHolding) {
+            roomCard.classList.remove('not-held', 'student-cancelled');
+            roomCard.classList.add('has-class');
+        } else {
+            roomCard.classList.remove('has-class', 'student-cancelled');
+            roomCard.classList.add('not-held');
+        }
+    }
 }
 
 // Notification system

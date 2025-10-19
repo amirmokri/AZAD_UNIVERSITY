@@ -72,6 +72,35 @@
         color: #666;
     }
     
+    .floor-stats {
+        display: flex;
+        justify-content: space-around;
+        margin: 15px 0;
+        padding: 10px 0;
+        border-top: 1px solid #e9ecef;
+        border-bottom: 1px solid #e9ecef;
+    }
+    
+    .stat-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+    }
+    
+    .stat-number {
+        font-size: 18px;
+        font-weight: bold;
+        color: #4caf50;
+        margin-bottom: 2px;
+    }
+    
+    .stat-label {
+        font-size: 11px;
+        color: #666;
+        line-height: 1.2;
+    }
+    
     .floor-number {
         background: #4caf50;
         color: white;
@@ -164,7 +193,7 @@
     </div>
     
     <div class="selection-content">
-        <a href="{% url 'admin:classes_classschedule_day_selection' %}" class="back-link">← بازگشت به انتخاب روز</a>
+        <a href="{% url 'admin:classes_classschedule_chart' %}" class="back-link">← بازگشت به انتخاب روز</a>
         
         <div class="day-info">
             <h3>روز انتخابی: {{ day_name }}</h3>
@@ -180,10 +209,24 @@
         </div>
         
         <div class="floor-grid">
-            {% for floor in floors %}
-                <a href="{% url 'admin:classes_classschedule_chart_floor' day=day floor=floor.floor_number %}" class="floor-card">
-                    <div class="floor-number">{{ floor.floor_number }}</div>
-                    <h3>{{ floor.floor_name }}</h3>
+            {% for floor_stat in floor_stats %}
+                <a href="{% url 'admin:classes_classschedule_chart_floor' day=day floor=floor_stat.floor.floor_number %}" class="floor-card">
+                    <div class="floor-number">{{ floor_stat.floor.floor_number }}</div>
+                    <h3>{{ floor_stat.floor.floor_name }}</h3>
+                    <div class="floor-stats">
+                        <div class="stat-item">
+                            <span class="stat-number">{{ floor_stat.schedules_count }}</span>
+                            <span class="stat-label">کل برنامه‌ها</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-number">{{ floor_stat.active_schedules_count }}</span>
+                            <span class="stat-label">برنامه‌های فعال</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-number">{{ floor_stat.rooms_count }}</span>
+                            <span class="stat-label">اتاق‌های استفاده شده</span>
+                        </div>
+                    </div>
                     <p>مشاهده برنامه کلاسی</p>
                 </a>
             {% endfor %}

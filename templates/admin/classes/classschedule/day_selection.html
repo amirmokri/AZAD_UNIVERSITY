@@ -72,6 +72,35 @@
         color: #666;
     }
     
+    .day-stats {
+        display: flex;
+        justify-content: space-around;
+        margin: 15px 0;
+        padding: 10px 0;
+        border-top: 1px solid #e9ecef;
+        border-bottom: 1px solid #e9ecef;
+    }
+    
+    .stat-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+    }
+    
+    .stat-number {
+        font-size: 18px;
+        font-weight: bold;
+        color: #2196f3;
+        margin-bottom: 2px;
+    }
+    
+    .stat-label {
+        font-size: 11px;
+        color: #666;
+        line-height: 1.2;
+    }
+    
     .back-link {
         display: inline-block;
         padding: 10px 20px;
@@ -147,9 +176,23 @@
         </div>
         
         <div class="day-grid">
-            {% for day_value, day_name in days %}
-                <a href="{% url 'admin:classes_classschedule_floor_selection' day=day_value %}" class="day-card">
-                    <h3>{{ day_name }}</h3>
+            {% for day_stat in day_stats %}
+                <a href="{% url 'admin:classes_classschedule_floor_selection' day=day_stat.value %}" class="day-card">
+                    <h3>{{ day_stat.name }}</h3>
+                    <div class="day-stats">
+                        <div class="stat-item">
+                            <span class="stat-number">{{ day_stat.schedules_count }}</span>
+                            <span class="stat-label">کل برنامه‌ها</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-number">{{ day_stat.active_schedules_count }}</span>
+                            <span class="stat-label">برنامه‌های فعال</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-number">{{ day_stat.rooms_count }}</span>
+                            <span class="stat-label">اتاق‌های استفاده شده</span>
+                        </div>
+                    </div>
                     <p>مشاهده برنامه کلاسی</p>
                 </a>
             {% endfor %}

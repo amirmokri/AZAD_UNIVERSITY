@@ -16,12 +16,17 @@ from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
+from django.contrib.auth.decorators import login_required
 from datetime import timedelta, time as dtime
 import hashlib
+import logging
 from .models import Faculty, ClassSchedule, Floor, Room, Course, Teacher, ClassCancellationVote, ClassConfirmationVote
 from .search import search_courses, search_teachers, autocomplete_courses, autocomplete_teachers
 from django.db.models import Q
 import json
+
+# Set up logging
+logger = logging.getLogger(__name__)
 
 
 def home(request):
@@ -1019,3 +1024,64 @@ def vote_class_confirmation(request):
         return JsonResponse({'success': False, 'error': 'Invalid JSON'}, status=400)
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@require_http_methods(["POST"])
+@login_required
+def admin_toggle_holding(request):
+    """
+    Admin-only API endpoint to toggle class holding status.
+    
+    Only staff users can use this endpoint to directly change
+    whether a class is being held or not.
+    
+    Args:
+        request: Django HTTP request with JSON body containing schedule_id and is_holding
+        
+    Returns:
+        JsonResponse with success status and message
+    """
+    try:
+        # Check if user is staff
+        if not request.user.is_staff:
+            return JsonResponse({
+                'success': False, 
+                'error': 'شما مجاز به انجام این عمل نیستید'
+            }, status=403)
+        
+        data = json.loads(request.body)
+        schedule_id = data.get('schedule_id')
+        is_holding = data.get('is_holding')
+        
+        if not schedule_id or is_holding is None:
+            return JsonResponse({
+                'success': False, 
+                'error': 'Schedule ID and holding status are required'
+            }, status=400)
+        
+        # Get the schedule
+        schedule = get_object_or_404(ClassSchedule, id=schedule_id, is_active=True)
+        
+        # Update holding status
+        schedule.is_holding = is_holding
+        schedule.save()
+        
+        # Clear student reports when admin changes status
+        schedule.student_reported_holding = False
+        schedule.student_reported_not_holding = False
+        schedule.student_reported_at = None
+        schedule.save()
+        
+        status_text = "برگزار می‌شود" if is_holding else "برگزار نمی‌شود"
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'وضعیت کلاس به "{status_text}" تغییر یافت',
+            'is_holding': is_holding
+        })
+        
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Invalid JSON data'}, status=400)
+    except Exception as e:
+        logger.error(f"Admin toggle holding error: {str(e)}", exc_info=True)
+        return JsonResponse({'success': False, 'error': 'خطا در بروزرسانی وضعیت کلاس'}, status=500)

@@ -11,15 +11,28 @@ from classes.models import Course, Teacher, Floor, Room, ClassSchedule, ImportJo
 DAY_MAP = {
     'شنبه': 'saturday',
     'یکشنبه': 'sunday',
+    'یک شنبه': 'sunday',  # with space
     'دوشنبه': 'monday',
+    'دو شنبه': 'monday',  # with space
     'سه‌شنبه': 'tuesday',
-    'سه شنبه': 'tuesday',
+    'سه شنبه': 'tuesday',  # with space
+    'سه‌شنبه': 'tuesday',  # with zero-width non-joiner
     'چهارشنبه': 'wednesday',
+    'چهار شنبه': 'wednesday',  # with space
     'پنجشنبه': 'thursday',
+    'پنج شنبه': 'thursday',  # with space - this was missing!
     'جمعه': 'friday',
+    # Additional variations that might exist
+    'شنبه‌ها': 'saturday',  # plural form
+    'یکشنبه‌ها': 'sunday',
+    'دوشنبه‌ها': 'monday',
+    'سه‌شنبه‌ها': 'tuesday',
+    'چهارشنبه‌ها': 'wednesday',
+    'پنجشنبه‌ها': 'thursday',
+    'جمعه‌ها': 'friday',
 }
 
-CAL_REGEX = re.compile(r"(\S+)\s+(\d{1,2}:\d{2})\s*تا\s*(\d{1,2}:\d{2})")
+CAL_REGEX = re.compile(r"(\S+(?:\s+\S+)*?)\s+(\d{1,2}:\d{2})\s*تا\s*(\d{1,2}:\d{2})")
 
 
 def _safe_time(val: str):
@@ -252,6 +265,12 @@ def import_ai_excel(path: str, faculty: Faculty, semester: str, academic_year: s
                     cal_text = _normalize_text(row.get('تقويم كلاس درس'))
                     # Strip trailing Persian/ASCII semicolons and extra chars
                     cal_text = cal_text.rstrip('؛; ')
+                    
+                    # Additional normalization for day names with spaces
+                    cal_text = cal_text.replace('  ', ' ')  # Replace double spaces with single space
+                    
+                    # Log the calendar text for debugging
+                    logger.debug(f"Row {int(idx) + 2}: Processing calendar text: '{cal_text}'")
 
                     def _to_int(v):
                         try:
@@ -266,9 +285,25 @@ def import_ai_excel(path: str, faculty: Faculty, semester: str, academic_year: s
                     if not m:
                         raise ValueError(f"قالب تقویم نامعتبر: {cal_text}")
                     day_fa, start_s, end_s = m.group(1), m.group(2), m.group(3)
-                    day_en = DAY_MAP.get(day_fa)
+                    
+                    # Normalize day name for better matching
+                    day_fa_normalized = day_fa.strip()
+                    day_en = DAY_MAP.get(day_fa_normalized)
+                    
                     if not day_en:
-                        raise ValueError(f"روز نامعتبر: {day_fa}")
+                        # Try to find a partial match for day names
+                        for day_key, day_value in DAY_MAP.items():
+                            if day_fa_normalized in day_key or day_key in day_fa_normalized:
+                                day_en = day_value
+                                logger.info(f"Matched day '{day_fa_normalized}' to '{day_key}' -> {day_value}")
+                                break
+                    
+                    if not day_en:
+                        # Log the exact characters for debugging
+                        logger.error(f"Row {int(idx) + 2}: Invalid day name: '{day_fa_normalized}' (length: {len(day_fa_normalized)})")
+                        logger.error(f"Row {int(idx) + 2}: Calendar text was: '{cal_text}'")
+                        logger.error(f"Row {int(idx) + 2}: Available day names: {list(DAY_MAP.keys())}")
+                        raise ValueError(f"روز نامعتبر: '{day_fa_normalized}'. روزهای معتبر: {', '.join(DAY_MAP.keys())}")
 
                     start_time = _safe_time(start_s)
                     end_time = _safe_time(end_s)

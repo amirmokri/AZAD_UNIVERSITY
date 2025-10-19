@@ -43,6 +43,7 @@ urlpatterns = [
     # Voting endpoints
     path('api/vote-cancellation/', views.vote_class_cancellation, name='vote_cancellation'),
     path('api/vote-confirmation/', views.vote_class_confirmation, name='vote_confirmation'),
+    path('api/admin-toggle-holding/', views.admin_toggle_holding, name='admin_toggle_holding'),
     
     # Error pages
     path('error/', views.error_404, name='error_404'),

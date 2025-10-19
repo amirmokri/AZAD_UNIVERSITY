@@ -1,5 +1,5 @@
 {% extends "admin/base_site.html" %}
-{% load i18n admin_urls static admin_modify %}
+{% load i18n admin_urls static admin_modify admin_extras %}
 
 {% block title %}{{ title }} | {{ site_title|default:_('Django site admin') }}{% endblock %}
 
@@ -205,19 +205,6 @@
         text-orientation: initial;
     }
     
-    .time-header.two-or-less-header {
-        background: linear-gradient(135deg, #e8f5e8 0%, #f1f8e9 100%);
-        color: #2e7d32;
-        border-right: 2px solid #4caf50;
-        min-width: 90px; /* Slightly narrower for 2- credit hours */
-    }
-    
-    .time-header.three-or-more-header {
-        background: linear-gradient(135deg, #fff3e0 0%, #fff8e1 100%);
-        color: #f57c00;
-        border-right: 2px solid #ff9800;
-        min-width: 110px; /* Wider for 3+ credit hours */
-    }
     
     .time-slot-info {
         display: flex;
@@ -236,24 +223,6 @@
         line-height: 1.2;
     }
     
-    .credit-indicator {
-        font-size: 8px;
-        padding: 2px 6px;
-        border-radius: 10px;
-        text-align: center;
-        font-weight: 600;
-        background: rgba(255, 255, 255, 0.8);
-    }
-    
-    .two-or-less-header .credit-indicator {
-        background: rgba(76, 175, 80, 0.2);
-        color: #2e7d32;
-    }
-    
-    .three-or-more-header .credit-indicator {
-        background: rgba(255, 152, 0, 0.2);
-        color: #f57c00;
-    }
     
     .credit-lines {
         display: flex;
@@ -520,6 +489,51 @@
     .chart-actions a.secondary:hover {
         background: linear-gradient(135deg, #545b62 0%, #343a40 100%);
         box-shadow: 0 6px 20px rgba(108, 117, 125, 0.4);
+    }
+    
+    .export-btn {
+        display: inline-block;
+        padding: 12px 20px;
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        color: white;
+        text-decoration: none;
+        border-radius: 8px;
+        margin: 0 5px;
+        transition: all 0.3s ease;
+        font-weight: 600;
+        box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+        border: 2px solid transparent;
+        font-size: 14px;
+    }
+    
+    .export-btn:hover {
+        background: linear-gradient(135deg, #20c997 0%, #17a2b8 100%);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(40, 167, 69, 0.4);
+        color: white;
+        text-decoration: none;
+        border-color: #17a2b8;
+    }
+    
+    .export-btn:active {
+        transform: translateY(0);
+        box-shadow: 0 2px 8px rgba(40, 167, 69, 0.3);
+    }
+    
+    .export-btn:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        pointer-events: none;
+    }
+    
+    .export-loading {
+        animation: pulse 1.5s ease-in-out infinite;
+    }
+    
+    @keyframes pulse {
+        0% { opacity: 1; }
+        50% { opacity: 0.5; }
+        100% { opacity: 1; }
     }
     
     .table-container {
@@ -808,38 +822,27 @@
         <p>نمودار برنامه کلاسی - نمایش بصری برنامه‌های درسی</p>
         {% if selected_day and selected_floor %}
             <p>روز: {{ selected_day|title }} - طبقه: {{ selected_floor }}</p>
-        {% elif selected_day %}
-            <p>روز: {{ selected_day|title }}</p>
         {% endif %}
     </div>
     
     <div class="chart-controls">
-        <a href="{% url 'admin:classes_classschedule_day_selection' %}">انتخاب روز و طبقه</a>
-        <a href="{% url 'admin:classes_classschedule_chart' %}">نمایش همه</a>
+        <a href="{% url 'admin:classes_classschedule_chart' %}">انتخاب روز</a>
+        {% if selected_day %}
+            <a href="{% url 'admin:classes_classschedule_floor_selection' day=selected_day %}">انتخاب طبقه</a>
+        {% endif %}
         <a href="{% url 'admin:classes_classschedule_changelist' %}">لیست برنامه‌ها</a>
     </div>
     
     <div class="table-container">
         <table class="chart-table">
             <thead>
-                <!-- Time slots organized by credit hours -->
+                <!-- Unified time slots -->
                 <tr>
                     <th class="room-cell">اتاق</th>
-                    <!-- ≤2 credit hours time slots -->
-                    {% for time_slot in time_slots_2_or_less %}
-                        <th class="time-header two-or-less-header">
+                    {% for time_slot in time_slots %}
+                        <th class="time-header">
                             <div class="time-slot-info">
                                 <div class="time-text">{{ time_slot.1 }}</div>
-                                <div class="credit-indicator">≤2 واحد</div>
-                            </div>
-                        </th>
-                    {% endfor %}
-                    <!-- ≥3 credit hours time slots -->
-                    {% for time_slot in time_slots_3_or_more %}
-                        <th class="time-header three-or-more-header">
-                            <div class="time-slot-info">
-                                <div class="time-text">{{ time_slot.1 }}</div>
-                                <div class="credit-indicator">≥3 واحد</div>
                             </div>
                         </th>
                     {% endfor %}
@@ -855,9 +858,9 @@
                                 <div class="room-type">{{ room.get_room_type_display }}</div>
                             </div>
                         </td>
-                        <!-- ≤2 credit hours columns -->
-                        {% for time_slot in time_slots_2_or_less %}
-                            <td class="schedule-cell two-or-less-cell" 
+                        <!-- Unified time slots for all classes -->
+                        {% for time_slot in time_slots %}
+                            <td class="schedule-cell" 
                                 data-room="{{ room.id }}" 
                                 data-day="{{ selected_day }}" 
                                 data-time-slot="{{ time_slot.0 }}"
@@ -865,155 +868,39 @@
                                 data-floor="{{ room.floor.floor_number }}"
                                 onclick="openScheduleModal(this)">
                                 
-                                {% if selected_day %}
-                                    {% for schedule in schedules %}
-                                        {% if schedule.day_of_week == selected_day and schedule.room.id == room.id and schedule.course.credit_hours <= 2 %}
-                                            {% if schedule.start_time and schedule.end_time %}
-                                                {% if schedule.start_time|time:"H:i" == time_slot.0|slice:":5" and schedule.end_time|time:"H:i" == time_slot.0|slice:"6:" %}
-                                                    <div class="schedule-content occupied {% if not schedule.is_holding %}not-holding{% endif %}">
-                                                        <div class="course-code">{{ schedule.course.course_code }}</div>
-                                                        <div class="course-name">{{ schedule.course.course_name }}</div>
-                                                        <div class="teacher-name">{{ schedule.teacher.full_name }}</div>
-                                                        {% if schedule.semester %}
-                                                        <div class="semester-info">{{ schedule.semester }}</div>
-                                                        {% endif %}
-                                                        <div class="credit-hours">{{ schedule.course.credit_hours }}</div>
-                                                        <input type="hidden" class="schedule-data" 
-                                                               data-schedule-id="{{ schedule.id }}"
-                                                               data-course-id="{{ schedule.course.id }}"
-                                                               data-course-name="{{ schedule.course.course_name }}"
-                                                               data-course-code="{{ schedule.course.course_code }}"
-                                                               data-teacher-id="{{ schedule.teacher.id }}"
-                                                               data-teacher-name="{{ schedule.teacher.full_name }}"
-                                                               data-credit="{{ schedule.course.credit_hours }}"
-                                                               data-holding="{{ schedule.is_holding }}"
-                                                               data-semester="{{ schedule.semester }}"
-                                                               data-academic-year="{{ schedule.academic_year }}"
-                                                               data-notes="{{ schedule.notes }}"
-                                                               data-start-time="{{ schedule.start_time|time:'H:i' }}"
-                                                               data-end-time="{{ schedule.end_time|time:'H:i' }}">
-                                                    </div>
+                                {% with room_schedules=schedule_map|get_item:room.id %}
+                                    {% with schedule=room_schedules|get_item:time_slot.0 %}
+                                        {% if schedule %}
+                                            <div class="schedule-content occupied {% if not schedule.is_holding %}not-holding{% endif %}">
+                                                <div class="course-code">{{ schedule.course.course_code }}</div>
+                                                <div class="course-name">{{ schedule.course.course_name }}</div>
+                                                <div class="teacher-name">{{ schedule.teacher.full_name }}</div>
+                                                {% if schedule.semester %}
+                                                <div class="semester-info">{{ schedule.semester }}</div>
                                                 {% endif %}
-                                            {% else %}
-                                                {% if schedule.time_slot == time_slot.0 %}
-                                                    <div class="schedule-content occupied {% if not schedule.is_holding %}not-holding{% endif %}">
-                                                        <div class="course-code">{{ schedule.course.course_code }}</div>
-                                                        <div class="course-name">{{ schedule.course.course_name }}</div>
-                                                        <div class="teacher-name">{{ schedule.teacher.full_name }}</div>
-                                                        {% if schedule.semester %}
-                                                        <div class="semester-info">{{ schedule.semester }}</div>
-                                                        {% endif %}
-                                                        <div class="credit-hours">{{ schedule.course.credit_hours }}</div>
-                                                        <input type="hidden" class="schedule-data" 
-                                                               data-schedule-id="{{ schedule.id }}"
-                                                               data-course-id="{{ schedule.course.id }}"
-                                                               data-course-name="{{ schedule.course.course_name }}"
-                                                               data-course-code="{{ schedule.course.course_code }}"
-                                                               data-teacher-id="{{ schedule.teacher.id }}"
-                                                               data-teacher-name="{{ schedule.teacher.full_name }}"
-                                                               data-credit="{{ schedule.course.credit_hours }}"
-                                                               data-holding="{{ schedule.is_holding }}"
-                                                               data-semester="{{ schedule.semester }}"
-                                                               data-academic-year="{{ schedule.academic_year }}"
-                                                               data-notes="{{ schedule.notes }}"
-                                                               data-start-time="{{ schedule.start_time|time:'H:i' }}"
-                                                               data-end-time="{{ schedule.end_time|time:'H:i' }}">
-                                                    </div>
-                                                {% endif %}
-                                            {% endif %}
+                                                <div class="credit-hours">{{ schedule.course.credit_hours }} واحد</div>
+                                                <input type="hidden" class="schedule-data" 
+                                                       data-schedule-id="{{ schedule.id }}"
+                                                       data-course-id="{{ schedule.course.id }}"
+                                                       data-course-name="{{ schedule.course.course_name }}"
+                                                       data-course-code="{{ schedule.course.course_code }}"
+                                                       data-teacher-id="{{ schedule.teacher.id }}"
+                                                       data-teacher-name="{{ schedule.teacher.full_name }}"
+                                                       data-credit="{{ schedule.course.credit_hours }}"
+                                                       data-holding="{{ schedule.is_holding }}"
+                                                       data-semester="{{ schedule.semester }}"
+                                                       data-academic-year="{{ schedule.academic_year }}"
+                                                       data-notes="{{ schedule.notes }}"
+                                                       data-start-time="{{ schedule.start_time|time:'H:i' }}"
+                                                       data-end-time="{{ schedule.end_time|time:'H:i' }}">
+                                            </div>
+                                        {% else %}
+                                            <div class="schedule-content empty-line">
+                                                <small>خالی</small>
+                                            </div>
                                         {% endif %}
-                                    {% endfor %}
-                                    {% if not schedules %}
-                                        <div class="schedule-content empty-line">
-                                            <small>خالی</small>
-                                        </div>
-                                    {% endif %}
-                                {% else %}
-                                    <div class="schedule-content empty-line">
-                                        <small>خالی</small>
-                                    </div>
-                                {% endif %}
-                            </td>
-                        {% endfor %}
-                        
-                        <!-- ≥3 credit hours columns -->
-                        {% for time_slot in time_slots_3_or_more %}
-                            <td class="schedule-cell three-or-more-cell" 
-                                data-room="{{ room.id }}" 
-                                data-day="{{ selected_day }}" 
-                                data-time-slot="{{ time_slot.0 }}"
-                                data-room-number="{{ room.room_number }}"
-                                data-floor="{{ room.floor.floor_number }}"
-                                onclick="openScheduleModal(this)">
-                                
-                                {% if selected_day %}
-                                    {% for schedule in schedules %}
-                                        {% if schedule.day_of_week == selected_day and schedule.room.id == room.id and schedule.course.credit_hours >= 3 %}
-                                            {% if schedule.start_time and schedule.end_time %}
-                                                {% if schedule.start_time|time:"H:i" == time_slot.0|slice:":5" and schedule.end_time|time:"H:i" == time_slot.0|slice:"6:" %}
-                                                    <div class="schedule-content occupied {% if not schedule.is_holding %}not-holding{% endif %}">
-                                                        <div class="course-code">{{ schedule.course.course_code }}</div>
-                                                        <div class="course-name">{{ schedule.course.course_name }}</div>
-                                                        <div class="teacher-name">{{ schedule.teacher.full_name }}</div>
-                                                        {% if schedule.semester %}
-                                                        <div class="semester-info">{{ schedule.semester }}</div>
-                                                        {% endif %}
-                                                        <div class="credit-hours three-plus">{{ schedule.course.credit_hours }}</div>
-                                                        <input type="hidden" class="schedule-data" 
-                                                               data-schedule-id="{{ schedule.id }}"
-                                                               data-course-id="{{ schedule.course.id }}"
-                                                               data-course-name="{{ schedule.course.course_name }}"
-                                                               data-course-code="{{ schedule.course.course_code }}"
-                                                               data-teacher-id="{{ schedule.teacher.id }}"
-                                                               data-teacher-name="{{ schedule.teacher.full_name }}"
-                                                               data-credit="{{ schedule.course.credit_hours }}"
-                                                               data-holding="{{ schedule.is_holding }}"
-                                                               data-semester="{{ schedule.semester }}"
-                                                               data-academic-year="{{ schedule.academic_year }}"
-                                                               data-notes="{{ schedule.notes }}"
-                                                               data-start-time="{{ schedule.start_time|time:'H:i' }}"
-                                                               data-end-time="{{ schedule.end_time|time:'H:i' }}">
-                                                    </div>
-                                                {% endif %}
-                                            {% else %}
-                                                {% if schedule.time_slot == time_slot.0 %}
-                                                    <div class="schedule-content occupied {% if not schedule.is_holding %}not-holding{% endif %}">
-                                                        <div class="course-code">{{ schedule.course.course_code }}</div>
-                                                        <div class="course-name">{{ schedule.course.course_name }}</div>
-                                                        <div class="teacher-name">{{ schedule.teacher.full_name }}</div>
-                                                        {% if schedule.semester %}
-                                                        <div class="semester-info">{{ schedule.semester }}</div>
-                                                        {% endif %}
-                                                        <div class="credit-hours three-plus">{{ schedule.course.credit_hours }}</div>
-                                                        <input type="hidden" class="schedule-data" 
-                                                               data-schedule-id="{{ schedule.id }}"
-                                                               data-course-id="{{ schedule.course.id }}"
-                                                               data-course-name="{{ schedule.course.course_name }}"
-                                                               data-course-code="{{ schedule.course.course_code }}"
-                                                               data-teacher-id="{{ schedule.teacher.id }}"
-                                                               data-teacher-name="{{ schedule.teacher.full_name }}"
-                                                               data-credit="{{ schedule.course.credit_hours }}"
-                                                               data-holding="{{ schedule.is_holding }}"
-                                                               data-semester="{{ schedule.semester }}"
-                                                               data-academic-year="{{ schedule.academic_year }}"
-                                                               data-notes="{{ schedule.notes }}"
-                                                               data-start-time="{{ schedule.start_time|time:'H:i' }}"
-                                                               data-end-time="{{ schedule.end_time|time:'H:i' }}">
-                                                    </div>
-                                                {% endif %}
-                                            {% endif %}
-                                        {% endif %}
-                                    {% endfor %}
-                                    {% if not schedules %}
-                                        <div class="schedule-content empty-line">
-                                            <small>خالی</small>
-                                        </div>
-                                    {% endif %}
-                                {% else %}
-                                    <div class="schedule-content empty-line">
-                                        <small>خالی</small>
-                                    </div>
-                                {% endif %}
+                                    {% endwith %}
+                                {% endwith %}
                             </td>
                         {% endfor %}
                     </tr>
@@ -1049,6 +936,42 @@
         <a href="{% url 'admin:classes_classschedule_changelist' %}" class="secondary">مدیریت برنامه‌ها</a>
         <a href="{% url 'admin:classes_course_changelist' %}" class="secondary">مدیریت دروس</a>
         <a href="{% url 'admin:classes_teacher_changelist' %}" class="secondary">مدیریت اساتید</a>
+        
+        <!-- CSV Export Button -->
+        <div style="margin-top: 15px; padding-top: 15px; border-top: 2px solid #dee2e6;">
+            <h4 style="margin: 0 0 10px 0; color: #495057; font-size: 16px;">📊 صادرات داده‌ها</h4>
+            <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+                {% if selected_day and selected_floor %}
+                    <a href="{% url 'admin:classes_classschedule_chart_export_csv_floor' day=selected_day floor=selected_floor %}" 
+                       class="export-btn" 
+                       title="صادرات فایل CSV برای {{ selected_day|title }} - طبقه {{ selected_floor }}"
+                       onclick="showExportLoading(this)">
+                        <span class="export-text">📄 صادرات CSV ({{ selected_day|title }} - طبقه {{ selected_floor }})</span>
+                        <span class="export-loading" style="display: none;">⏳ در حال تولید...</span>
+                    </a>
+                {% elif selected_day %}
+                    <a href="{% url 'admin:classes_classschedule_chart_export_csv_day' day=selected_day %}" 
+                       class="export-btn" 
+                       title="صادرات فایل CSV برای {{ selected_day|title }}"
+                       onclick="showExportLoading(this)">
+                        <span class="export-text">📄 صادرات CSV ({{ selected_day|title }})</span>
+                        <span class="export-loading" style="display: none;">⏳ در حال تولید...</span>
+                    </a>
+                {% else %}
+                    <a href="{% url 'admin:classes_classschedule_chart_export_csv' %}" 
+                       class="export-btn" 
+                       title="صادرات فایل CSV برای همه برنامه‌ها"
+                       onclick="showExportLoading(this)">
+                        <span class="export-text">📄 صادرات CSV (همه برنامه‌ها)</span>
+                        <span class="export-loading" style="display: none;">⏳ در حال تولید...</span>
+                    </a>
+                {% endif %}
+                
+                <span style="color: #6c757d; font-size: 12px; margin-left: 10px;">
+                    💡 فایل CSV شامل تمام اطلاعات برنامه‌ها، اتاق‌ها و جزئیات کامل است
+                </span>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -1321,6 +1244,27 @@ window.onclick = function(event) {
     const modal = document.getElementById('scheduleModal');
     if (event.target == modal) {
         closeScheduleModal();
+    }
+}
+
+// CSV Export loading indicator
+function showExportLoading(button) {
+    const textSpan = button.querySelector('.export-text');
+    const loadingSpan = button.querySelector('.export-loading');
+    
+    if (textSpan && loadingSpan) {
+        textSpan.style.display = 'none';
+        loadingSpan.style.display = 'inline';
+        button.style.pointerEvents = 'none';
+        button.style.opacity = '0.7';
+        
+        // Reset after 3 seconds (in case of error)
+        setTimeout(() => {
+            textSpan.style.display = 'inline';
+            loadingSpan.style.display = 'none';
+            button.style.pointerEvents = 'auto';
+            button.style.opacity = '1';
+        }, 3000);
     }
 }
 

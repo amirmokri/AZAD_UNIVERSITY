@@ -786,28 +786,26 @@
                                 {% endif %}
                             </div>
                             
-                                <!-- Vote Buttons -->
-                                <div class="voting-section">
-                                    <button class="vote-button vote-cancel" 
-                                            data-schedule-id="{{ class.id }}"
-                                            onclick="voteForCancellation(this, {{ class.id }})">
-                                        🚫 برگزار نمی‌شود
-                                    </button>
-                                    <div class="vote-count cancel-count">
-                                        <span id="cancel-count-{{ class.id }}">{{ class.get_cancellation_vote_count }}</span> رای
+                                <!-- Admin Controls -->
+                                {% if user.is_staff %}
+                                <div class="admin-controls">
+                                    <div class="admin-buttons">
+                                        <button class="admin-btn hold-btn {% if class.is_holding %}active{% endif %}" 
+                                                onclick="toggleClassHolding({{ class.id }}, true)"
+                                                title="علامت‌گذاری به عنوان برگزار شونده">
+                                            ✅ برگزار می‌شود
+                                        </button>
+                                        <button class="admin-btn not-hold-btn {% if not class.is_holding %}active{% endif %}" 
+                                                onclick="toggleClassHolding({{ class.id }}, false)"
+                                                title="علامت‌گذاری به عنوان برگزار نشونده">
+                                            ⏸️ برگزار نمی‌شود
+                                        </button>
+                                    </div>
+                                    <div class="admin-info">
+                                        <small>مدیریت وضعیت کلاس</small>
                                     </div>
                                 </div>
-                                
-                                <div class="voting-section">
-                                    <button class="vote-button vote-confirm" 
-                                            data-schedule-id="{{ class.id }}"
-                                            onclick="voteForConfirmation(this, {{ class.id }})">
-                                        ✅ برگزار می‌شود
-                                    </button>
-                                    <div class="vote-count confirm-count">
-                                        <span id="confirm-count-{{ class.id }}">{{ class.get_confirmation_vote_count }}</span> رای
-                                    </div>
-                                </div>
+                                {% endif %}
                         </div>
                         {% endfor %}
                     </div>

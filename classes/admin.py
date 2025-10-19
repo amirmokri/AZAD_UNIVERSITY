@@ -344,10 +344,16 @@ class ClassScheduleAdmin(admin.ModelAdmin):
         """Add custom chart view URLs."""
         urls = super().get_urls()
         custom_urls = [
-            path('chart/', self.admin_site.admin_view(self.chart_view), name='classes_classschedule_chart'),
+            # Chart flow: day selection -> floor selection -> chart display
+            path('chart/', self.admin_site.admin_view(self.day_selection_view), name='classes_classschedule_chart'),
             path('chart/day/', self.admin_site.admin_view(self.day_selection_view), name='classes_classschedule_day_selection'),
             path('chart/day/<str:day>/', self.admin_site.admin_view(self.floor_selection_view), name='classes_classschedule_floor_selection'),
             path('chart/day/<str:day>/floor/<int:floor>/', self.admin_site.admin_view(self.chart_view), name='classes_classschedule_chart_floor'),
+            # CSV export URLs
+            path('chart/export-csv/day/<str:day>/floor/<int:floor>/', self.admin_site.admin_view(self.chart_export_csv), name='classes_classschedule_chart_export_csv_floor'),
+            path('chart/export-csv/day/<str:day>/', self.admin_site.admin_view(self.chart_export_csv), name='classes_classschedule_chart_export_csv_day'),
+            path('chart/export-csv/', self.admin_site.admin_view(self.chart_export_csv), name='classes_classschedule_chart_export_csv'),
+            # Other chart actions
             path('chart/save/', self.admin_site.admin_view(self.save_schedule_view), name='classes_classschedule_save'),
             path('chart/delete/', self.admin_site.admin_view(self.delete_schedule_view), name='classes_classschedule_delete'),
             path('import-excel/', self.admin_site.admin_view(self.import_excel_view), name='classes_classschedule_import_excel'),
@@ -571,111 +577,405 @@ class ClassScheduleAdmin(admin.ModelAdmin):
         
         Args:
             request: HTTP request
+            day: Day of week filter (required)
+            floor: Floor number filter (required)
+        """
+        # Both day and floor are required for chart display
+        if not day or not floor:
+            from django.contrib import messages
+            messages.error(request, 'روز و طبقه باید انتخاب شوند.')
+            from django.shortcuts import redirect
+            return redirect('admin:classes_classschedule_chart')
+        
+        try:
+            # Get all days and floors for navigation
+            days = ClassSchedule.DAY_CHOICES
+            floors = Floor.objects.filter(is_active=True).order_by('floor_number')
+            
+            # Get all rooms for the selected floor or all floors
+            if floor:
+                rooms = Room.objects.filter(floor__floor_number=floor, is_active=True).order_by('room_number')
+            else:
+                rooms = Room.objects.filter(is_active=True).order_by('floor__floor_number', 'room_number')
+            
+            # Get schedules for the selected day or all days
+            schedules_query = ClassSchedule.objects.filter(is_active=True)
+            if day:
+                schedules_query = schedules_query.filter(day_of_week=day)
+            if floor:
+                schedules_query = schedules_query.filter(room__floor__floor_number=floor)
+            
+            schedules = schedules_query.select_related('teacher', 'course', 'room', 'room__floor', 'course__faculty')
+            
+            # Get all unique time slots from actual schedules
+            all_time_slots = set()
+            for schedule in schedules:
+                if schedule.start_time and schedule.end_time:
+                    time_slot = f"{schedule.start_time.strftime('%H:%M')}-{schedule.end_time.strftime('%H:%M')}"
+                    all_time_slots.add(time_slot)
+                elif schedule.time_slot:
+                    all_time_slots.add(schedule.time_slot)
+            
+            # Sort time slots chronologically
+            sorted_time_slots = sorted(all_time_slots)
+            
+            # Create time slot tuples for template
+            time_slots = [(slot, slot) for slot in sorted_time_slots]
+            
+            # Create a comprehensive mapping of schedules by room and time
+            schedule_map = {}
+            
+            for schedule in schedules:
+                room_id = schedule.room.id
+                if room_id not in schedule_map:
+                    schedule_map[room_id] = {}
+                
+                # Determine time key - prioritize start_time/end_time over time_slot
+                time_key = None
+                if schedule.start_time and schedule.end_time:
+                    time_key = f"{schedule.start_time.strftime('%H:%M')}-{schedule.end_time.strftime('%H:%M')}"
+                elif schedule.time_slot:
+                    time_key = schedule.time_slot
+                
+                if time_key:
+                    schedule_map[room_id][time_key] = schedule
+            
+            # Get courses and teachers for the popup form
+            courses = Course.objects.filter(is_active=True).order_by('course_code')
+            teachers = Teacher.objects.filter(is_active=True).order_by('full_name')
+            
+            # Calculate statistics for display
+            total_schedules = schedules.count()
+            total_rooms = rooms.count()
+            active_schedules = schedules.filter(is_holding=True).count()
+            
+            context = {
+                'title': 'نمودار برنامه کلاسی',
+                'days': days,
+                'floors': floors,
+                'rooms': rooms,
+                'schedules': schedules,
+                'schedule_map': schedule_map,
+                'time_slots': time_slots,
+                'selected_day': day,
+                'selected_floor': floor,
+                'courses': courses,
+                'teachers': teachers,
+                'total_schedules': total_schedules,
+                'total_rooms': total_rooms,
+                'active_schedules': active_schedules,
+                'opts': self.model._meta,
+            }
+            
+            return TemplateResponse(request, 'admin/classes/classschedule/chart.html', context)
+            
+        except Exception as e:
+            # Log error and return error page
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Chart view error: {str(e)}", exc_info=True)
+            
+            from django.contrib import messages
+            messages.error(request, f'خطا در نمایش نمودار: {str(e)}')
+            
+            # Return to changelist with error
+            from django.shortcuts import redirect
+            return redirect('admin:classes_classschedule_changelist')
+    
+    def chart_export_csv(self, request, day=None, floor=None):
+        """
+        Export schedule chart data to CSV format.
+        
+        Args:
+            request: HTTP request
             day: Day of week filter (optional)
             floor: Floor number filter (optional)
         """
-        # Get all days and floors for navigation
-        days = ClassSchedule.DAY_CHOICES
-        floors = Floor.objects.filter(is_active=True).order_by('floor_number')
-        
-        # Create ordered time slots with proper grouping
-        # Separate time slots by credit hours for better organization
-        time_slots_2_or_less = [
-            ('07:30-09:15', '7:30-9:15'),
-            ('09:15-11:00', '9:15-11:00'),
-            ('11:00-13:15', '11:00-13:15'),
-            ('13:15-15:00', '13:15-15:00'),
-            ('15:00-16:45', '15:00-16:45'),
-            ('16:45-18:00', '16:45-18:00')
-        ]
-        
-        time_slots_3_or_more = [
-            ('07:30-10:10', '7:30-10:10'),
-            ('10:15-13:30', '10:15-13:30'),
-            ('13:30-16:00', '13:30-16:00'),
-            ('16:00-18:30', '16:00-18:30')
-        ]
-        
-        # Flatten all time slots for compatibility
-        all_time_slots = ClassSchedule.TIME_CHOICES_2_OR_LESS + ClassSchedule.TIME_CHOICES_3_OR_MORE
-        
-        # Get all unique time ranges from existing schedules (for dynamic chart)
-        existing_times = set()
-        for schedule in schedules:
-            if schedule.start_time and schedule.end_time:
-                time_range = f"{schedule.start_time.strftime('%H:%M')}-{schedule.end_time.strftime('%H:%M')}"
-                existing_times.add(time_range)
-            elif schedule.time_slot:
-                existing_times.add(schedule.time_slot)
-        
-        # Sort existing times for display
-        sorted_existing_times = sorted(list(existing_times))
-        
-        # Get all rooms for the selected floor or all floors
-        if floor:
-            rooms = Room.objects.filter(floor__floor_number=floor, is_active=True).order_by('room_number')
-        else:
-            rooms = Room.objects.filter(is_active=True).order_by('floor__floor_number', 'room_number')
-        
-        # Get schedules for the selected day or all days
-        schedules_query = ClassSchedule.objects.filter(is_active=True)
-        if day:
-            schedules_query = schedules_query.filter(day_of_week=day)
-        if floor:
-            schedules_query = schedules_query.filter(room__floor__floor_number=floor)
-        
-        schedules = schedules_query.select_related('teacher', 'course', 'room', 'room__floor')
-        
-        # Get courses and teachers for the popup form
-        courses = Course.objects.filter(is_active=True).order_by('course_code')
-        teachers = Teacher.objects.filter(is_active=True).order_by('full_name')
-        
-        context = {
-            'title': 'نمودار برنامه کلاسی',
-            'days': days,
-            'floors': floors,
-            'rooms': rooms,
-            'schedules': schedules,
-            'all_time_slots': all_time_slots,
-            'time_slots_2_or_less': time_slots_2_or_less,
-            'time_slots_3_or_more': time_slots_3_or_more,
-            'sorted_existing_times': sorted_existing_times,
-            'selected_day': day,
-            'selected_floor': floor,
-            'courses': courses,
-            'teachers': teachers,
-            'opts': self.model._meta,
-        }
-        
-        return TemplateResponse(request, 'admin/classes/classschedule/chart.html', context)
+        try:
+            import csv
+            from django.http import HttpResponse
+            from django.utils import timezone
+            from django.utils.encoding import force_str
+            import io
+            
+            # Get the same data as chart view
+            rooms_query = Room.objects.filter(is_active=True)
+            if floor:
+                rooms_query = rooms_query.filter(floor__floor_number=floor)
+            rooms = rooms_query.order_by('floor__floor_number', 'room_number')
+            
+            schedules_query = ClassSchedule.objects.filter(is_active=True)
+            if day:
+                schedules_query = schedules_query.filter(day_of_week=day)
+            if floor:
+                schedules_query = schedules_query.filter(room__floor__floor_number=floor)
+            
+            schedules = schedules_query.select_related(
+                'teacher', 'course', 'room', 'room__floor', 'course__faculty'
+            )
+            
+            # Create CSV response
+            response = HttpResponse(content_type='text/csv; charset=utf-8')
+            
+            # Generate filename with timestamp and filters
+            timestamp = timezone.now().strftime('%Y%m%d_%H%M%S')
+            filename_parts = ['schedule_chart', timestamp]
+            if day:
+                day_name = dict(ClassSchedule.DAY_CHOICES).get(day, day)
+                filename_parts.append(day_name)
+            if floor:
+                filename_parts.append(f'floor_{floor}')
+            
+            filename = '_'.join(filename_parts) + '.csv'
+            response['Content-Disposition'] = f'attachment; filename="{filename}"'
+            
+            # Create CSV writer with UTF-8 BOM for Excel compatibility
+            response.write('\ufeff')  # UTF-8 BOM
+            writer = csv.writer(response)
+            
+            # Write headers
+            headers = [
+                'شماره اتاق',
+                'طبقه',
+                'نوع اتاق',
+                'ظرفیت',
+                'موقعیت',
+                'دانشکده',
+                'روز هفته',
+                'ساعت شروع',
+                'ساعت پایان',
+                'بازه زمانی',
+                'کد درس',
+                'نام درس',
+                'واحد درسی',
+                'نام استاد',
+                'نیمسال',
+                'سال تحصیلی',
+                'وضعیت برگزاری',
+                'یادداشت‌ها',
+                'تاریخ ایجاد',
+                'تاریخ بروزرسانی'
+            ]
+            writer.writerow(headers)
+            
+            # Create a dictionary to map schedules to rooms and time slots
+            schedule_map = {}
+            for schedule in schedules:
+                room_key = schedule.room.id
+                time_key = None
+                
+                # Determine time key based on available time data
+                if schedule.start_time and schedule.end_time:
+                    time_key = f"{schedule.start_time.strftime('%H:%M')}-{schedule.end_time.strftime('%H:%M')}"
+                elif schedule.time_slot:
+                    time_key = schedule.time_slot
+                
+                if time_key:
+                    if room_key not in schedule_map:
+                        schedule_map[room_key] = {}
+                    schedule_map[room_key][time_key] = schedule
+            
+            # Get all unique time slots from all schedules for comprehensive coverage
+            all_time_slots_global = set()
+            for schedule in schedules:
+                if schedule.start_time and schedule.end_time:
+                    time_slot = f"{schedule.start_time.strftime('%H:%M')}-{schedule.end_time.strftime('%H:%M')}"
+                    all_time_slots_global.add(time_slot)
+                elif schedule.time_slot:
+                    all_time_slots_global.add(schedule.time_slot)
+            
+            # Add standard time slots if none exist
+            if not all_time_slots_global:
+                all_time_slots_global = {
+                    '07:30-09:15', '09:15-11:00', '11:00-13:15', 
+                    '13:15-15:00', '15:00-16:45', '16:45-18:00',
+                    '07:30-10:10', '10:15-13:30', '13:30-16:00', '16:00-18:30'
+                }
+            
+            # Write data rows
+            for room in rooms:
+                room_schedules = schedule_map.get(room.id, {})
+                
+                # Use global time slots for consistent coverage
+                sorted_time_slots = sorted(all_time_slots_global)
+                
+                for time_slot in sorted_time_slots:
+                    schedule = room_schedules.get(time_slot)
+                    
+                    if schedule:
+                        # Schedule exists - write full data
+                        row = [
+                            force_str(room.room_number),
+                            force_str(room.floor.floor_number),
+                            force_str(room.get_room_type_display()),
+                            force_str(room.capacity),
+                            force_str(room.get_position_display()),
+                            force_str(room.faculty.faculty_name if room.faculty else 'نامشخص'),
+                            force_str(schedule.get_day_of_week_display()),
+                            force_str(schedule.start_time.strftime('%H:%M') if schedule.start_time else ''),
+                            force_str(schedule.end_time.strftime('%H:%M') if schedule.end_time else ''),
+                            force_str(time_slot),
+                            force_str(schedule.course.course_code),
+                            force_str(schedule.course.course_name),
+                            force_str(schedule.course.credit_hours),
+                            force_str(schedule.teacher.full_name),
+                            force_str(schedule.semester or ''),
+                            force_str(schedule.academic_year or ''),
+                            force_str('برگزار می‌شود' if schedule.is_holding else 'برگزار نمی‌شود'),
+                            force_str(schedule.notes or ''),
+                            force_str(schedule.created_at.strftime('%Y-%m-%d %H:%M:%S') if schedule.created_at else ''),
+                            force_str(schedule.updated_at.strftime('%Y-%m-%d %H:%M:%S') if schedule.updated_at else '')
+                        ]
+                    else:
+                        # No schedule - write room info with empty schedule data
+                        row = [
+                            force_str(room.room_number),
+                            force_str(room.floor.floor_number),
+                            force_str(room.get_room_type_display()),
+                            force_str(room.capacity),
+                            force_str(room.get_position_display()),
+                            force_str(room.faculty.faculty_name if room.faculty else 'نامشخص'),
+                            force_str(dict(ClassSchedule.DAY_CHOICES).get(day, '') if day else ''),
+                            '',  # start_time
+                            '',  # end_time
+                            force_str(time_slot),
+                            '',  # course_code
+                            '',  # course_name
+                            '',  # credit_hours
+                            '',  # teacher_name
+                            '',  # semester
+                            '',  # academic_year
+                            '',  # is_holding
+                            '',  # notes
+                            '',  # created_at
+                            ''   # updated_at
+                        ]
+                    
+                    writer.writerow(row)
+            
+            return response
+            
+        except Exception as e:
+            # Log the error for debugging
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"CSV export error: {str(e)}", exc_info=True)
+            
+            # Return user-friendly error response
+            from django.http import JsonResponse
+            from django.contrib import messages
+            
+            # Add error message for admin interface
+            if hasattr(request, '_messages'):
+                messages.error(request, f'خطا در صادرات فایل CSV: {str(e)}')
+            
+            return JsonResponse({
+                'error': 'خطا در تولید فایل CSV',
+                'details': 'لطفاً با مدیر سیستم تماس بگیرید یا دوباره تلاش کنید.',
+                'technical_details': str(e) if request.user.is_superuser else None
+            }, status=500)
     
     def day_selection_view(self, request):
         """
-        Day selection view for chart.
+        Day selection view for chart with class statistics.
         """
         days = ClassSchedule.DAY_CHOICES
+        day_stats = []
+        
+        # Get statistics for each day
+        for day_value, day_name in days:
+            schedules_count = ClassSchedule.objects.filter(
+                day_of_week=day_value, 
+                is_active=True
+            ).count()
+            
+            active_schedules_count = ClassSchedule.objects.filter(
+                day_of_week=day_value, 
+                is_active=True,
+                is_holding=True
+            ).count()
+            
+            rooms_count = Room.objects.filter(
+                schedules__day_of_week=day_value,
+                schedules__is_active=True,
+                is_active=True
+            ).distinct().count()
+            
+            day_stats.append({
+                'value': day_value,
+                'name': day_name,
+                'schedules_count': schedules_count,
+                'active_schedules_count': active_schedules_count,
+                'rooms_count': rooms_count
+            })
+        
         context = {
             'title': 'انتخاب روز هفته',
             'days': days,
+            'day_stats': day_stats,
             'opts': self.model._meta,
         }
         return TemplateResponse(request, 'admin/classes/classschedule/day_selection.html', context)
     
     def floor_selection_view(self, request, day):
         """
-        Floor selection view for chart after day selection.
+        Floor selection view for chart after day selection with statistics.
         """
-        floors = Floor.objects.filter(is_active=True).order_by('floor_number')
-        day_name = dict(ClassSchedule.DAY_CHOICES).get(day, day)
-        
-        context = {
-            'title': f'انتخاب طبقه - {day_name}',
-            'day': day,
-            'day_name': day_name,
-            'floors': floors,
-            'opts': self.model._meta,
-        }
-        return TemplateResponse(request, 'admin/classes/classschedule/floor_selection.html', context)
+        try:
+            # Get day name
+            day_choices = dict(ClassSchedule.DAY_CHOICES)
+            day_name = day_choices.get(day, day)
+            
+            # Get floors that have schedules for this day
+            floors = Floor.objects.filter(
+                rooms__schedules__day_of_week=day,
+                rooms__schedules__is_active=True,
+                is_active=True
+            ).distinct().order_by('floor_number')
+            
+            floor_stats = []
+            for floor in floors:
+                schedules_count = ClassSchedule.objects.filter(
+                    room__floor=floor,
+                    day_of_week=day,
+                    is_active=True
+                ).count()
+                
+                active_schedules_count = ClassSchedule.objects.filter(
+                    room__floor=floor,
+                    day_of_week=day,
+                    is_active=True,
+                    is_holding=True
+                ).count()
+                
+                rooms_count = Room.objects.filter(
+                    floor=floor,
+                    schedules__day_of_week=day,
+                    schedules__is_active=True,
+                    is_active=True
+                ).distinct().count()
+                
+                floor_stats.append({
+                    'floor': floor,
+                    'schedules_count': schedules_count,
+                    'active_schedules_count': active_schedules_count,
+                    'rooms_count': rooms_count
+                })
+            
+            context = {
+                'title': f'انتخاب طبقه - {day_name}',
+                'day': day,
+                'day_name': day_name,
+                'floors': floors,
+                'floor_stats': floor_stats,
+                'opts': self.model._meta,
+            }
+            return TemplateResponse(request, 'admin/classes/classschedule/floor_selection.html', context)
+            
+        except Exception as e:
+            logger.error(f"Floor selection view error: {str(e)}", exc_info=True)
+            messages.error(request, f'خطا در نمایش طبقات: {str(e)}')
+            return redirect('admin:classes_classschedule_changelist')
     
     actions = ['activate_schedules', 'deactivate_schedules', 'hold_schedules', 'unhold_schedules', 'duplicate_schedule']
     
