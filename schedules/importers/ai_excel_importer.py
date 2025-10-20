@@ -442,10 +442,11 @@ def import_ai_excel(path: str, faculty: Faculty, semester: str, academic_year: s
                     except (AttributeError, TypeError) as e:
                         raise ValueError(f"خطا در محاسبه مدت زمان کلاس: {str(e)}")
                     
-                    # Upsert Schedule keyed by (room, day_of_week, start_time, end_time, semester)
+                    # Upsert Schedule, idempotent across re-imports or changes
+                    # Primary key: (room, day_of_week, start_time, end_time, semester)
+                    # Fallback key (to capture changed room/time): (course, teacher, day_of_week, semester)
                     # Skip validation during import to allow time conflicts
-                    
-                    # First try to get existing schedule
+
                     schedule = ClassSchedule.objects.filter(
                         room=room,
                         day_of_week=day_en,
@@ -453,9 +454,36 @@ def import_ai_excel(path: str, faculty: Faculty, semester: str, academic_year: s
                         end_time=end_time,
                         semester=semester
                     ).first()
-                    
+
+                    if not schedule:
+                        # Fallback: match by stable academic identity if exact key not found
+                        fallback_qs = ClassSchedule.objects.filter(
+                            course=course,
+                            teacher=teacher,
+                            day_of_week=day_en,
+                            semester=semester
+                        )
+                        # If multiple, try narrow by same room OR overlapping time
+                        if fallback_qs.count() > 1:
+                            # Prefer same room
+                            same_room = fallback_qs.filter(room=room)
+                            if same_room.exists():
+                                fallback_qs = same_room
+                            else:
+                                # Prefer overlapping by time window
+                                fallback_qs = fallback_qs.filter(
+                                    start_time__lte=end_time,
+                                    end_time__gte=start_time,
+                                )
+                        schedule = fallback_qs.first()
+
                     if schedule:
-                        # Update existing schedule
+                        # Update existing schedule in-place to reflect any changes
+                        schedule.room = room
+                        schedule.day_of_week = day_en
+                        schedule.start_time = start_time
+                        schedule.end_time = end_time
+                        schedule.semester = semester
                         schedule.course = course
                         schedule.teacher = teacher
                         schedule.academic_year = academic_year
