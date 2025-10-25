@@ -454,7 +454,6 @@ class ClassScheduleAdmin(admin.ModelAdmin):
         'day_display',
         'time_display_new',
         'is_holding_badge',
-        'student_votes_display',
         'semester',
         'is_active_badge'
     ]
@@ -653,10 +652,6 @@ class ClassScheduleAdmin(admin.ModelAdmin):
         return format_html('<span style="color: orange;">⏸️ برگزار نمی‌شود</span>')
     is_holding_badge.short_description = 'وضعیت برگزاری'
     
-    def student_votes_display(self, obj):
-        """Display student vote counts (placeholder for future implementation)"""
-        return format_html('<span style="color: #999;">-</span>')
-    student_votes_display.short_description = 'رای دانشجویان'
     
     def is_active_badge(self, obj):
         """Display active status as colored badge"""
