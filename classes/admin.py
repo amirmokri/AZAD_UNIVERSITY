@@ -380,7 +380,7 @@ class RoomAdmin(admin.ModelAdmin):
     Comprehensive room management with floor filtering.
     """
     
-    list_display = ['room_number', 'floor', 'faculty_badge', 'room_type_display', 'capacity', 'position_display', 'schedule_count', 'is_active_badge']
+    list_display = ['room_number', 'floor', 'faculty_badge', 'room_type_display', 'position_display', 'schedule_count', 'is_active_badge']
     list_filter = ['faculty', 'floor', 'room_type', 'position', 'is_active']
     search_fields = ['room_number', 'faculty__faculty_name', 'floor__floor_name']
     ordering = ['faculty', 'floor__floor_number', 'room_number']
@@ -395,7 +395,7 @@ class RoomAdmin(admin.ModelAdmin):
             'fields': ('floor', 'room_number', 'room_type')
         }),
         ('ویژگی‌ها', {
-            'fields': ('capacity', 'position')
+            'fields': ('position',)
         }),
         ('وضعیت', {
             'fields': ('is_active',)
@@ -606,11 +606,7 @@ class ClassScheduleAdmin(admin.ModelAdmin):
     
     def room_info(self, obj):
         """Display room information"""
-        return format_html(
-            '{}<br/><small>ظرفیت: {}</small>',
-            obj.room,
-            obj.room.capacity
-        )
+        return obj.room
     room_info.short_description = 'اتاق'
     
     def day_display(self, obj):

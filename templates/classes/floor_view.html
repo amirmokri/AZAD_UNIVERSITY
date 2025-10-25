@@ -440,23 +440,6 @@
 }
 
 /* Capacity Badge - Compact (Same as Teacher Classes) */
-.capacity-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    padding: 10px 18px;
-    border-radius: 25px;
-    font-weight: 700;
-    font-size: 1rem;
-    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
-}
-
-.capacity-badge::before {
-    content: '👥';
-    font-size: 1.1rem;
-}
 
 /* Holding Status - Compact (Same as Teacher Classes) */
 .holding-status {
@@ -487,10 +470,6 @@
     font-weight: 800;
 }
 
-/* Voting Section */
-.voting-section {
-    margin-top: 8px;
-}
 
 /* Admin Controls */
 .admin-controls {
@@ -933,9 +912,6 @@
                                                 {{ room_info.room.get_position_display|default:"نامشخص" }}
                                             {% endif %}
                                         </span>
-                                    </div>
-                                    <div class="info-row">
-                                        <span class="capacity-badge">{{ room_info.room.capacity }} نفر</span>
                                     </div>
                                     
                                     {% if room_info.schedule.course.credit_hours %}

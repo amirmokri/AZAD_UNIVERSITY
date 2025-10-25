@@ -130,7 +130,6 @@ class Room(models.Model):
     floor = models.ForeignKey(Floor, on_delete=models.CASCADE, related_name='rooms', verbose_name="طبقه")
     room_number = models.CharField(max_length=20, verbose_name="شماره اتاق")
     room_type = models.CharField(max_length=20, choices=ROOM_TYPE_CHOICES, default='classroom', verbose_name="نوع اتاق")
-    capacity = models.PositiveIntegerField(verbose_name="ظرفیت")
     position = models.CharField(max_length=10, choices=POSITION_CHOICES, default='left', verbose_name="موقعیت")
     is_active = models.BooleanField(default=True, verbose_name="فعال")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="تاریخ ایجاد")
