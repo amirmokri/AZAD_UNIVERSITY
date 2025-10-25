@@ -40,9 +40,7 @@ urlpatterns = [
     path('api/search/', views.search_api, name='search_api'),
     path('api/teacher-autocomplete/', views.elasticsearch_teacher_autocomplete, name='teacher_autocomplete'),
     
-    # Voting endpoints
-    path('api/vote-cancellation/', views.vote_class_cancellation, name='vote_cancellation'),
-    path('api/vote-confirmation/', views.vote_class_confirmation, name='vote_confirmation'),
+    # Admin endpoints
     path('api/admin-toggle-holding/', views.admin_toggle_holding, name='admin_toggle_holding'),
     
     # Error pages

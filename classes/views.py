@@ -20,7 +20,7 @@ from django.contrib.auth.decorators import login_required
 from datetime import timedelta, time as dtime
 import hashlib
 import logging
-from .models import Faculty, ClassSchedule, Floor, Room, Course, Teacher, ClassCancellationVote, ClassConfirmationVote
+from .models import Faculty, ClassSchedule, Floor, Room, Course, Teacher
 from .search import search_courses, search_teachers, autocomplete_courses, autocomplete_teachers
 from django.db.models import Q
 import json
@@ -162,68 +162,21 @@ def time_selection(request, faculty_id, day):
     """
     Time selection page view.
     
-    After selecting a day, this view displays available time slots
-    for that specific day.
+    This view is no longer used as the class_affairs page now shows
+    time slots directly. Redirects to class_affairs for backward compatibility.
     
     Args:
         request: Django HTTP request object
         faculty_id: Selected faculty ID
-        day: Selected day of the week (e.g., 'saturday')
+        day: Selected day of the week
         
     Returns:
-        Rendered time_selection.html template with time slots
+        Redirect to class_affairs page
     """
-    
-    # Get the selected faculty
-    faculty = get_object_or_404(Faculty, id=faculty_id, is_active=True)
-    
-    # Validate day parameter
-    valid_days = ['saturday', 'sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday']
-    if day not in valid_days:
-        # Handle invalid day with error message
-        context = {
-            'error': 'روز انتخاب شده معتبر نیست.'
-        }
-        return render(request, 'classes/error.html', context, status=400)
-    
-    # Day names in Persian
-    day_names = {
-        'saturday': 'شنبه',
-        'sunday': 'یکشنبه',
-        'monday': 'دوشنبه',
-        'tuesday': 'سه‌شنبه',
-        'wednesday': 'چهارشنبه',
-        'thursday': 'پنجشنبه',
-        'friday': 'جمعه',
-    }
-    
-    # Time slots for courses with 2 or less credit hours
-    times_2_or_less = [
-        {'key': '07:30-09:15', 'name': '7:30 - 9:15 صبح', 'display': '7:30-9:15'},
-        {'key': '09:15-11:00', 'name': '9:15 - 11:00 صبح', 'display': '9:15-11:00'},
-        {'key': '11:00-13:15', 'name': '11:00 - 13:15', 'display': '11:00-13:15'},
-        {'key': '13:15-15:00', 'name': '13:15 - 15:00 بعدازظهر', 'display': '13:15-15:00'},
-        {'key': '15:00-16:45', 'name': '15:00 - 16:45 بعدازظهر', 'display': '15:00-16:45'},
-        {'key': '16:45-18:00', 'name': '16:45 - 18:00 عصر', 'display': '16:45-18:00'},
-    ]
-    
-    # Time slots for courses with 3 or more credit hours
-    times_3_or_more = [
-        {'key': '07:30-10:10', 'name': '7:30 - 10:10 صبح', 'display': '7:30-10:10'},
-        {'key': '10:15-13:30', 'name': '10:15 - 13:30', 'display': '10:15-13:30'},
-        {'key': '13:30-16:00', 'name': '13:30 - 16:00 بعدازظهر', 'display': '13:30-16:00'},
-        {'key': '16:00-18:30', 'name': '16:00 - 18:30 عصر', 'display': '16:00-18:30'},
-    ]
-    
-    context = {
-        'page_title': f'انتخاب زمان - {day_names[day]}',
-        'faculty': faculty,
-        'selected_day': day,
-        'day_name': day_names[day],
-        'times_2_or_less': times_2_or_less,
-        'times_3_or_more': times_3_or_more,
-    }
-    return render(request, 'classes/time_selection.html', context)
+    from django.shortcuts import redirect
+    return redirect('classes:class_affairs', faculty_id=faculty_id)
+
+
 
 
 def floor_view(request, faculty_id, day, time):
@@ -310,9 +263,8 @@ def floor_view(request, faculty_id, day, time):
                 is_active=True
             ).order_by('position', 'room_number')
             
-            # Organize rooms by position
-            left_rooms = []
-            right_rooms = []
+            # Collect all rooms in a single list
+            all_rooms = []
             
             for room in rooms:
                 # Get schedule for this room at selected day and time
@@ -387,21 +339,7 @@ def floor_view(request, faculty_id, day, time):
                     'schedule': schedule,
                 }
                 
-                # Categorize by position
-                if room.position == 'left':
-                    left_rooms.append(room_info)
-                elif room.position == 'right':
-                    right_rooms.append(room_info)
-                elif room.position == 'center':
-                    # Distribute center rooms between left and right columns
-                    # Alternate between left and right for better visual balance
-                    if len(left_rooms) <= len(right_rooms):
-                        left_rooms.append(room_info)
-                    else:
-                        right_rooms.append(room_info)
-                else:
-                    # Default to left column for unknown positions
-                    left_rooms.append(room_info)
+                all_rooms.append(room_info)
             
             # Sort rooms by room number (convert to int for proper sorting)
             def sort_key(room_info):
@@ -415,21 +353,18 @@ def floor_view(request, faculty_id, day, time):
                 except:
                     return 0
             
-            left_rooms.sort(key=sort_key)
-            right_rooms.sort(key=sort_key)
+            all_rooms.sort(key=sort_key)
             
             # Filter out empty rooms when searching
             if search_query:
                 # When searching, only show rooms that have matching schedules
-                left_rooms = [room for room in left_rooms if room['schedule']]
-                right_rooms = [room for room in right_rooms if room['schedule']]
+                all_rooms = [room for room in all_rooms if room['schedule']]
             
             # Only include floor if it has rooms with schedules (when searching) or any rooms (when not searching)
-            if not search_query or any(room['schedule'] for room in left_rooms + right_rooms):
+            if not search_query or any(room['schedule'] for room in all_rooms):
                 floor_data.append({
                     'floor': floor,
-                    'left_rooms': left_rooms,
-                    'right_rooms': right_rooms,
+                    'all_rooms': all_rooms,
                 })
         
         # Format time display - handle both new and legacy formats
@@ -573,12 +508,6 @@ def error_404(request, exception):
     return render(request, 'classes/error.html', context, status=404)
 
 
-def error_500(request):
-    """Custom 500 error handler"""
-    context = {
-        'error': 'خطای سرور رخ داده است. لطفاً بعداً تلاش کنید.'
-    }
-    return render(request, 'classes/error.html', context, status=500)
 
 
 @require_http_methods(["GET"])
@@ -846,184 +775,6 @@ def elasticsearch_teacher_autocomplete(request):
         return JsonResponse({'results': results})
 
 
-@csrf_exempt
-@require_http_methods(["POST"])
-def vote_class_cancellation(request):
-    """
-    API endpoint for students to vote that a class won't be held.
-    
-    Requires 3+ votes to mark class as not holding for 24 hours.
-    Uses IP + User Agent hash to prevent duplicate voting.
-    Implements balanced voting - removes one opposite vote when voting.
-    
-    Returns:
-        JsonResponse with both vote counts and updated status
-    """
-    try:
-        data = json.loads(request.body)
-        schedule_id = data.get('schedule_id')
-        
-        if not schedule_id:
-            return JsonResponse({'success': False, 'error': 'Schedule ID is required'}, status=400)
-        
-        # Get the schedule
-        schedule = get_object_or_404(ClassSchedule, id=schedule_id, is_active=True)
-        
-        # Create unique identifier for this voter (IP + User Agent)
-        ip_address = request.META.get('REMOTE_ADDR', '')
-        user_agent = request.META.get('HTTP_USER_AGENT', '')
-        voter_identifier = hashlib.sha256(f"{ip_address}{user_agent}cancellation".encode()).hexdigest()
-        
-        # Check if already voted
-        existing_vote = ClassCancellationVote.objects.filter(
-            schedule=schedule,
-            voter_identifier=voter_identifier,
-            voted_at__gte=timezone.now() - timedelta(hours=24)
-        ).first()
-        
-        if existing_vote:
-            return JsonResponse({
-                'success': False,
-                'error': 'شما قبلاً رای داده‌اید',
-                'already_voted': True,
-                'vote_count': schedule.get_cancellation_vote_count()
-            })
-        
-        # Create new cancellation vote
-        ClassCancellationVote.objects.create(
-            schedule=schedule,
-            voter_identifier=voter_identifier,
-            ip_address=ip_address
-        )
-        
-        # IMPORTANT: Remove one confirmation vote if exists (balancing mechanism)
-        # This creates a competitive voting system where opposite votes cancel each other
-        recent_confirmation_votes = ClassConfirmationVote.objects.filter(
-            schedule=schedule,
-            voted_at__gte=timezone.now() - timedelta(hours=24)
-        ).order_by('voted_at')
-        
-        if recent_confirmation_votes.exists():
-            # Remove the oldest confirmation vote
-            oldest_confirmation = recent_confirmation_votes.first()
-            oldest_confirmation.delete()
-        
-        # Update schedule status
-        schedule.check_and_update_holding_status()
-        
-        # Get updated vote counts
-        vote_count = schedule.get_cancellation_vote_count()
-        confirm_count = schedule.get_confirmation_vote_count()
-        
-        return JsonResponse({
-            'success': True,
-            'vote_count': vote_count,
-            'confirm_vote_count': confirm_count,  # Send both counts for UI update
-            'threshold_reached': vote_count >= 3,
-            'student_reported_not_holding': schedule.student_reported_not_holding,
-            'message': f'رای شما ثبت شد. رای‌های عدم برگزاری: {vote_count} | رای‌های تأیید: {confirm_count}'
-        })
-        
-    except json.JSONDecodeError:
-        return JsonResponse({'success': False, 'error': 'Invalid JSON'}, status=400)
-    except Exception as e:
-        return JsonResponse({'success': False, 'error': str(e)}, status=500)
-
-
-@csrf_exempt
-@require_http_methods(["POST"])
-def vote_class_confirmation(request):
-    """
-    API endpoint for students to vote that a class WILL be held.
-    
-    Opposite of cancellation vote - confirms class is happening.
-    Requires 3+ votes to mark class as confirmed for 24 hours.
-    Uses IP + User Agent hash to prevent duplicate voting.
-    
-    Args:
-        request: Django HTTP request with JSON body containing schedule_id
-        
-    Returns:
-        JsonResponse with vote result and current status
-        
-    Example Response:
-        {
-            "success": true,
-            "vote_count": 5,
-            "threshold_reached": true,
-            "student_reported_holding": true,
-            "message": "رای شما ثبت شد. مجموع رای‌های تأیید برگزاری: 5"
-        }
-    """
-    try:
-        data = json.loads(request.body)
-        schedule_id = data.get('schedule_id')
-        
-        if not schedule_id:
-            return JsonResponse({'success': False, 'error': 'Schedule ID is required'}, status=400)
-        
-        # Get the schedule
-        schedule = get_object_or_404(ClassSchedule, id=schedule_id, is_active=True)
-        
-        # Create unique identifier for this voter (IP + User Agent)
-        ip_address = request.META.get('REMOTE_ADDR', '')
-        user_agent = request.META.get('HTTP_USER_AGENT', '')
-        voter_identifier = hashlib.sha256(f"{ip_address}{user_agent}confirmation".encode()).hexdigest()
-        
-        # Check if already voted for confirmation
-        existing_vote = ClassConfirmationVote.objects.filter(
-            schedule=schedule,
-            voter_identifier=voter_identifier,
-            voted_at__gte=timezone.now() - timedelta(hours=24)
-        ).first()
-        
-        if existing_vote:
-            return JsonResponse({
-                'success': False,
-                'error': 'شما قبلاً رای داده‌اید',
-                'already_voted': True,
-                'vote_count': schedule.get_confirmation_vote_count()
-            })
-        
-        # Create new confirmation vote
-        ClassConfirmationVote.objects.create(
-            schedule=schedule,
-            voter_identifier=voter_identifier,
-            ip_address=ip_address
-        )
-        
-        # IMPORTANT: Remove one cancellation vote if exists (balancing mechanism)
-        # This creates a competitive voting system where opposite votes cancel each other
-        recent_cancellation_votes = ClassCancellationVote.objects.filter(
-            schedule=schedule,
-            voted_at__gte=timezone.now() - timedelta(hours=24)
-        ).order_by('voted_at')
-        
-        if recent_cancellation_votes.exists():
-            # Remove the oldest cancellation vote
-            oldest_cancellation = recent_cancellation_votes.first()
-            oldest_cancellation.delete()
-        
-        # Update schedule status
-        schedule.check_and_update_holding_status()
-        
-        # Get updated vote counts
-        vote_count = schedule.get_confirmation_vote_count()
-        cancel_count = schedule.get_cancellation_vote_count()
-        
-        return JsonResponse({
-            'success': True,
-            'vote_count': vote_count,
-            'cancel_vote_count': cancel_count,  # Send both counts for UI update
-            'threshold_reached': vote_count >= 3,
-            'student_reported_holding': schedule.student_reported_holding,
-            'message': f'رای شما ثبت شد. رای‌های تأیید: {vote_count} | رای‌های عدم برگزاری: {cancel_count}'
-        })
-        
-    except json.JSONDecodeError:
-        return JsonResponse({'success': False, 'error': 'Invalid JSON'}, status=400)
-    except Exception as e:
-        return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
 
 @require_http_methods(["POST"])
@@ -1066,11 +817,6 @@ def admin_toggle_holding(request):
         schedule.is_holding = is_holding
         schedule.save()
         
-        # Clear student reports when admin changes status
-        schedule.student_reported_holding = False
-        schedule.student_reported_not_holding = False
-        schedule.student_reported_at = None
-        schedule.save()
         
         status_text = "برگزار می‌شود" if is_holding else "برگزار نمی‌شود"
         

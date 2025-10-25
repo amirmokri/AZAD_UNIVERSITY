@@ -161,88 +161,37 @@
     font-size: 2.3rem;
 }
 
-/* Rooms Grid - Side by Side Layout with Separator Line */
+/* Rooms Grid - Compact 2-Column Layout (Same as Teacher Classes) */
 .rooms-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 40px;
-    margin-top: 30px;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
     max-width: 1200px;
     margin-left: auto;
     margin-right: auto;
-    position: relative;
-}
-
-/* Side Columns */
-.side-column {
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-}
-
-.left-column {
-    padding-right: 10px;
-}
-
-.right-column {
-    padding-left: 10px;
-}
-
-/* Vertical separator line between left and right sides */
-.rooms-grid::before {
-    content: '';
-    position: absolute;
-    left: 50%;
-    top: 0;
-    bottom: 0;
-    width: 3px;
-    background: linear-gradient(to bottom, 
-        transparent 0%, 
-        #667eea 10%, 
-        #764ba2 50%, 
-        #667eea 90%, 
-        transparent 100%);
-    transform: translateX(-50%);
-    z-index: 1;
-    box-shadow: 0 0 10px rgba(102, 126, 234, 0.3);
 }
 
 @media (max-width: 768px) {
     .rooms-grid {
-        gap: 20px;
-    }
-    
-    .rooms-grid::before {
-        width: 2px;
-    }
-    
-    .side-column {
+        grid-template-columns: repeat(2, 1fr);
         gap: 15px;
-    }
-    
-    .left-column {
-        padding-right: 5px;
-    }
-    
-    .right-column {
-        padding-left: 5px;
     }
 }
 
-/* Room Card - Compact Design */
+
+/* Room Card - Compact Design (Same as Teacher Classes) */
 .room-card {
     background: white;
-    border: 2px solid #e9ecef;
-    border-radius: 14px;
-    padding: 16px;
+    border: 3px solid #e9ecef;
+    border-radius: 20px;
+    padding: 28px;
     transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
     position: relative;
     overflow: hidden;
-    cursor: pointer;
+    min-height: 200px;
     display: flex;
     flex-direction: column;
-    height: fit-content;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.08);
 }
 
 @media (max-width: 768px) {
@@ -334,11 +283,8 @@
     box-shadow: 0 12px 35px rgba(0,0,0,0.15);
 }
 
-/* Room Header - Compact */
+/* Room Header - Compact (Same as Teacher Classes) */
 .room-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
     margin-bottom: 12px;
     padding-bottom: 10px;
     border-bottom: 2px solid #f0f0f0;
@@ -351,44 +297,40 @@
     }
 }
 
-/* Room Number - Compact */
+/* Room Number - Compact (Same as Teacher Classes) */
 .room-number {
-    font-size: 1.2rem;
+    font-size: 1.1rem;
     font-weight: 800;
     color: #1e3c72;
-    display: flex;
-    align-items: center;
-    gap: 6px;
+    margin-bottom: 8px;
+    line-height: 1.3;
 }
 
 @media (max-width: 768px) {
     .room-number {
         font-size: 1rem;
-    }
-}
-
-.room-number::before {
-    content: '🚪';
-    font-size: 1.1rem;
-}
-
-@media (max-width: 768px) {
-    .room-number::before {
-        font-size: 0.95rem;
+        margin-bottom: 6px;
     }
 }
 
 .room-type {
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     color: #666;
-    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-    padding: 7px 15px;
-    border-radius: 20px;
     font-weight: 600;
-    border: 1px solid #dee2e6;
+    background: #f8f9fa;
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 12px;
 }
 
-/* Room Body */
+@media (max-width: 768px) {
+    .room-type {
+        font-size: 0.8rem;
+        padding: 3px 10px;
+    }
+}
+
+/* Room Body - Same as Teacher Classes */
 .room-body {
     margin-top: 15px;
     flex: 1;
@@ -396,7 +338,7 @@
     flex-direction: column;
 }
 
-/* Class Info - Compact Spacing */
+/* Class Info - Compact Spacing (Same as Teacher Classes) */
 .class-info {
     display: flex;
     flex-direction: column;
@@ -410,12 +352,13 @@
     }
 }
 
-/* Info Row - Compact */
+/* Info Row - Compact (Same as Teacher Classes) */
 .info-row {
     display: flex;
     align-items: flex-start;
     gap: 8px;
     font-size: 0.9rem;
+    color: #495057;
     padding: 6px 0;
 }
 
@@ -427,15 +370,12 @@
     }
 }
 
-/* Info Label - Compact */
+/* Info Label - Compact (Same as Teacher Classes) */
 .info-label {
     font-weight: 700;
     color: #495057;
-    min-width: 85px;
+    min-width: 75px;
     font-size: 0.85rem;
-    display: flex;
-    align-items: center;
-    gap: 4px;
 }
 
 @media (max-width: 768px) {
@@ -449,24 +389,25 @@
     color: #212529;
     font-weight: 600;
     flex: 1;
-    line-height: 1.6;
 }
 
-/* Course Name - Compact */
+/* Course Name - Compact (Same as Teacher Classes) */
 .course-name-large {
-    font-size: 1rem;
+    font-size: 1.1rem;
     font-weight: 800;
     color: #1e3c72;
-    line-height: 1.4;
+    margin-bottom: 8px;
+    line-height: 1.3;
 }
 
 @media (max-width: 768px) {
     .course-name-large {
-        font-size: 0.9rem;
+        font-size: 1rem;
+        margin-bottom: 6px;
     }
 }
 
-/* Teacher Name - Compact */
+/* Teacher Name - Compact (Same as Teacher Classes) */
 .teacher-name-large {
     font-size: 0.95rem;
     font-weight: 700;
@@ -475,88 +416,56 @@
 
 @media (max-width: 768px) {
     .teacher-name-large {
-    font-size: 0.85rem;
+        font-size: 0.85rem;
     }
 }
 
 .faculty-name {
     font-weight: 600;
-    color: #667eea;
-    font-size: 0.9rem;
+    color: #667eea !important;
     background: linear-gradient(135deg, #667eea20 0%, #764ba220 100%);
-    padding: 3px 10px;
-    border-radius: 6px;
+    padding: 4px 12px;
+    border-radius: 8px;
     display: inline-block;
 }
 
-/* Corridor Side Indicator - Compact */
+/* Corridor Side Indicator - Compact (Same as Teacher Classes) */
 .corridor-indicator {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
     font-weight: 700;
-    font-size: 0.8rem;
-    padding: 4px 10px;
+    padding: 4px 12px;
     border-radius: 6px;
     background: linear-gradient(135deg, #28a74520 0%, #20c99720 100%);
-    color: #28a745;
-    margin-top: 6px;
+    color: #28a745 !important;
+    display: inline-block;
 }
 
-@media (max-width: 768px) {
-    .corridor-indicator {
-        font-size: 0.75rem;
-        padding: 3px 8px;
-    }
-}
-
-/* Capacity Badge - Compact */
+/* Capacity Badge - Compact (Same as Teacher Classes) */
 .capacity-badge {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
+    gap: 5px;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
-    padding: 6px 12px;
-    border-radius: 15px;
+    padding: 10px 18px;
+    border-radius: 25px;
     font-weight: 700;
-    font-size: 0.85rem;
-    box-shadow: 0 3px 10px rgba(102, 126, 234, 0.25);
-}
-
-@media (max-width: 768px) {
-    .capacity-badge {
-        padding: 5px 10px;
-        font-size: 0.75rem;
-    }
+    font-size: 1rem;
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
 }
 
 .capacity-badge::before {
     content: '👥';
-    font-size: 0.9rem;
+    font-size: 1.1rem;
 }
 
-@media (max-width: 768px) {
-    .capacity-badge::before {
-        font-size: 0.8rem;
-    }
-}
-
-/* Holding Status - Compact */
+/* Holding Status - Compact (Same as Teacher Classes) */
 .holding-status {
-    margin-top: 10px;
-    padding: 10px;
-    border-radius: 12px;
+    margin-top: 15px;
+    padding: 14px;
+    border-radius: 15px;
     text-align: center;
     font-weight: 700;
-    font-size: 0.85rem;
-}
-
-@media (max-width: 768px) {
-    .holding-status {
-        padding: 8px;
-        font-size: 0.8rem;
-    }
+    font-size: 1rem;
 }
 
 .holding-status.held {
@@ -970,8 +879,8 @@
     <div class="container">
         <h1 class="page-title">📚 برنامه کلاسی</h1>
         <p class="page-subtitle">{{ faculty.faculty_name }} - {{ day_name }} - {{ time_name }}</p>
-        <a href="{% url 'classes:time_selection' faculty.id selected_day %}" class="back-link">
-            ← بازگشت به انتخاب زمان
+        <a href="{% url 'classes:class_affairs' faculty.id %}" class="back-link">
+            ← بازگشت به انتخاب روز
         </a>
     </div>
 </section>
@@ -979,28 +888,6 @@
 <!-- Floor View Section -->
 <section class="floor-view-section">
     <div class="container" style="max-width: 1600px;">
-        <!-- Announcement Box -->
-        <div class="announcement-box">
-            <h3 class="announcement-title">
-                📢 اطلاعیه: گزارش عدم برگزاری کلاس
-            </h3>
-            <div class="announcement-content">
-                دانشجویان عزیز، شما می‌توانید با رأی دادن به سایر دانشجویان اطلاع دهید که کلاس برگزار می‌شود یا نمی‌شود. سیستم رای‌گیری به صورت متعادل عمل می‌کند.
-            </div>
-                <div class="announcement-steps">
-                <ol>
-                    <li>دکمه "🚫 برگزار نمی‌شود" یا "✅ برگزار می‌شود" را کلیک کنید</li>
-                    <li>⚖️ <strong>سیستم متعادل:</strong> هر رای جدید، یک رای از طرف مقابل را کم می‌کند</li>
-                    <li>رای‌های لغو (🚫) → کلاس قرمز می‌شود (عدم برگزاری)</li>
-                    <li>رای‌های تأیید (✅) → کلاس سبز می‌شود (تأیید برگزاری)</li>
-                    <li>پس از ۳ رای خالص برای هر طرف، وضعیت تغییر می‌کند</li>
-                    <li>این وضعیت برای ۲۴ ساعت باقی می‌ماند و سپس ریست می‌شود</li>
-                </ol>
-            </div>
-            <div class="announcement-warning">
-                ⚠️ هشدار: این سیستم مبتنی بر اعتماد دانشجویان است. لطفاً تنها در صورت اطمینان کامل رای ثبت کنید. رای‌های نادرست باعث سردرگمی سایر دانشجویان می‌شود.
-            </div>
-        </div>
         
         <!-- Search Box -->
         <div class="search-container">
@@ -1043,20 +930,19 @@
                     <h2 class="floor-title">{{ floor_info.floor.floor_name }}</h2>
                 </div>
                 
-                <!-- Rooms Grid - Positioned Columns -->
+                <!-- Rooms Grid - Compact 2-Column Layout -->
                 <div class="rooms-grid">
-                    <!-- Left Column (Left side of corridor) -->
-                    <div class="side-column left-column">
-                        {% for room_info in floor_info.left_rooms %}
-                        <div class="room-card {% if room_info.schedule %}{% if room_info.schedule.student_reported_not_holding %}student-cancelled{% elif room_info.schedule.is_holding %}has-class{% else %}not-held{% endif %}{% else %}empty-room-card{% endif %}">
-                                <div class="room-header">
-                                    <span class="room-number">{{ room_info.room.room_number }}</span>
-                                    <span class="room-type">{{ room_info.room.get_room_type_display }}</span>
-                                </div>
-                                <div class="room-body">
-                                    {% if room_info.schedule %}
-                                        <div class="class-info">
-                                            <div class="info-row">
+                    {% for room_info in floor_info.all_rooms %}
+                    <div class="room-card {% if room_info.schedule %}{% if room_info.schedule.student_reported_not_holding %}student-cancelled{% elif room_info.schedule.is_holding %}has-class{% else %}not-held{% endif %}{% else %}empty-room-card{% endif %}">
+                        <div class="room-header">
+                            <h3 class="room-number">{{ room_info.room.room_number }}</h3>
+                            <p class="room-type">{{ room_info.room.get_room_type_display }}</p>
+                        </div>
+                        
+                        <div class="room-body">
+                            {% if room_info.schedule %}
+                                <div class="class-info">
+                                    <div class="info-row">
                                         <span class="info-label">📚 درس:</span>
                                         <span class="info-value course-name-large">{{ room_info.schedule.course.course_name }}</span>
                                     </div>
@@ -1071,147 +957,75 @@
                                     <div class="info-row">
                                         <span class="info-label">👨‍🏫 استاد:</span>
                                         <span class="info-value teacher-name-large">{{ room_info.schedule.teacher.full_name|default:"تعیین نشده" }}</span>
-                                            </div>
-                                            <div class="info-row">
-                                                <span class="capacity-badge">{{ room_info.room.capacity }} نفر</span>
-                                            </div>
+                                    </div>
                                     <div class="info-row">
-                                        <span class="corridor-indicator">
+                                        <span class="info-label">🏢 طبقه:</span>
+                                        <span class="info-value">{{ room_info.room.floor.floor_name }}</span>
+                                    </div>
+                                    <div class="info-row">
+                                        <span class="info-label">📍 سمت راهرو:</span>
+                                        <span class="info-value corridor-indicator">
                                             {% if room_info.room.position == 'left' %}
-                                                ← سمت چپ راهرو
+                                                ← سمت چپ
                                             {% elif room_info.room.position == 'right' %}
-                                                سمت راست راهرو →
-                                            {% elif room_info.room.position == 'center' %}
-                                                ☰ وسط (دو طرفه)
+                                                سمت راست →
+                                            {% elif room_info.room.position == 'middle' %}
+                                                وسط (دو طرفه)
                                             {% else %}
-                                                📍 {{ room_info.room.get_position_display|default:"موقعیت نامشخص" }}
+                                                {{ room_info.room.get_position_display|default:"نامشخص" }}
                                             {% endif %}
                                         </span>
-                                            </div>
-                                    <div class="holding-status {% if room_info.schedule.student_reported_not_holding %}student-cancelled{% elif room_info.schedule.is_holding %}held{% else %}not-held{% endif %}">
-                                        {% if room_info.schedule.student_reported_not_holding %}
-                                            ⚠️ دانشجویان گزارش داده‌اند: کلاس برگزار نمی‌شود
-                                        {% elif room_info.schedule.is_holding %}
-                                            ✅ کلاس برگزار می‌شود
-                                        {% else %}
-                                            ⏸️ کلاس برگزار نمی‌شود
-                                        {% endif %}
+                                    </div>
+                                    <div class="info-row">
+                                        <span class="capacity-badge">{{ room_info.room.capacity }} نفر</span>
                                     </div>
                                     
-                                    <!-- Admin Controls -->
-                                    {% if user.is_staff %}
-                                    <div class="admin-controls">
-                                        <div class="admin-buttons">
-                                            <button class="admin-btn hold-btn {% if room_info.schedule.is_holding %}active{% endif %}" 
-                                                    onclick="toggleClassHolding({{ room_info.schedule.id }}, true)"
-                                                    title="علامت‌گذاری به عنوان برگزار شونده">
-                                                ✅ برگزار می‌شود
-                                            </button>
-                                            <button class="admin-btn not-hold-btn {% if not room_info.schedule.is_holding %}active{% endif %}" 
-                                                    onclick="toggleClassHolding({{ room_info.schedule.id }}, false)"
-                                                    title="علامت‌گذاری به عنوان برگزار نشونده">
-                                                ⏸️ برگزار نمی‌شود
-                                            </button>
-                                        </div>
-                                        <div class="admin-info">
-                                            <small>مدیریت وضعیت کلاس</small>
-                                        </div>
+                                    {% if room_info.schedule.course.credit_hours %}
+                                    <div class="info-row">
+                                        <span class="info-label">📊 واحد:</span>
+                                        <span class="info-value">{{ room_info.schedule.course.credit_hours }} واحد</span>
                                     </div>
                                     {% endif %}
                                 </div>
+                                
+                                <div class="holding-status {% if room_info.schedule.student_reported_not_holding %}student-cancelled{% elif room_info.schedule.is_holding %}held{% else %}not-held{% endif %}">
+                                    {% if room_info.schedule.student_reported_not_holding %}
+                                        ⚠️ دانشجویان گزارش داده‌اند: کلاس برگزار نمی‌شود
+                                    {% elif room_info.schedule.is_holding %}
+                                        ✅ کلاس برگزار می‌شود
+                                    {% else %}
+                                        ⏸️ کلاس برگزار نمی‌شود
+                                    {% endif %}
+                                </div>
+                                
+                                <!-- Admin Controls -->
+                                {% if user.is_staff %}
+                                <div class="admin-controls">
+                                    <div class="admin-buttons">
+                                        <button class="admin-btn hold-btn {% if room_info.schedule.is_holding %}active{% endif %}" 
+                                                onclick="toggleClassHolding({{ room_info.schedule.id }}, true)"
+                                                title="علامت‌گذاری به عنوان برگزار شونده">
+                                            ✅ برگزار می‌شود
+                                        </button>
+                                        <button class="admin-btn not-hold-btn {% if not room_info.schedule.is_holding %}active{% endif %}" 
+                                                onclick="toggleClassHolding({{ room_info.schedule.id }}, false)"
+                                                title="علامت‌گذاری به عنوان برگزار نشونده">
+                                            ⏸️ برگزار نمی‌شود
+                                        </button>
+                                    </div>
+                                    <div class="admin-info">
+                                        <small>مدیریت وضعیت کلاس</small>
+                                    </div>
+                                </div>
+                                {% endif %}
                             {% else %}
                                 <div class="empty-room">
                                     کلاسی برنامه‌ریزی نشده
-                                        </div>
-                                    {% endif %}
                                 </div>
-                            </div>
-                        {% endfor %}
+                            {% endif %}
+                        </div>
                     </div>
-                    
-                    <!-- Right Column (Right side of corridor) -->
-                    <div class="side-column right-column">
-                        {% for room_info in floor_info.right_rooms %}
-                    <div class="room-card {% if room_info.schedule %}{% if room_info.schedule.student_reported_not_holding %}student-cancelled{% elif room_info.schedule.is_holding %}has-class{% else %}not-held{% endif %}{% else %}empty-room-card{% endif %}">
-                                <div class="room-header">
-                            <span class="room-number">{{ room_info.room.room_number }}</span>
-                                    <span class="room-type">{{ room_info.room.get_room_type_display }}</span>
-                                </div>
-                                <div class="room-body">
-                                    {% if room_info.schedule %}
-                                        <div class="class-info">
-                                            <div class="info-row">
-                                        <span class="info-label">📚 درس:</span>
-                                        <span class="info-value course-name-large">{{ room_info.schedule.course.course_name }}</span>
-                                            </div>
-                                            <div class="info-row">
-                                                <span class="info-label">🔢 کد درس:</span>
-                                                <span class="info-value">{{ room_info.schedule.course.course_code }}</span>
-                                            </div>
-                                            <div class="info-row">
-                                        <span class="info-label">🏛️ دانشکده:</span>
-                                        <span class="info-value faculty-name">{{ room_info.schedule.course.faculty.faculty_name|default:"تعیین نشده" }}</span>
-                                    </div>
-                                    <div class="info-row">
-                                        <span class="info-label">👨‍🏫 استاد:</span>
-                                        <span class="info-value teacher-name-large">{{ room_info.schedule.teacher.full_name|default:"تعیین نشده" }}</span>
-                                    </div>
-                                    <div class="info-row">
-                                                <span class="capacity-badge">{{ room_info.room.capacity }} نفر</span>
-                                            </div>
-                                    <div class="info-row">
-                                        <span class="corridor-indicator">
-                                            {% if room_info.room.position == 'left' %}
-                                                ← سمت چپ راهرو
-                                            {% elif room_info.room.position == 'right' %}
-                                                سمت راست راهرو →
-                                            {% elif room_info.room.position == 'center' %}
-                                                ☰ وسط (دو طرفه)
-                                            {% else %}
-                                                📍 {{ room_info.room.get_position_display|default:"موقعیت نامشخص" }}
-                                            {% endif %}
-                                        </span>
-                                    </div>
-                                    <div class="holding-status {% if room_info.schedule.student_reported_not_holding %}student-cancelled{% elif room_info.schedule.is_holding %}held{% else %}not-held{% endif %}">
-                                        {% if room_info.schedule.student_reported_not_holding %}
-                                            ⚠️ دانشجویان گزارش داده‌اند: کلاس برگزار نمی‌شود
-                                        {% elif room_info.schedule.is_holding %}
-                                                    ✅ کلاس برگزار می‌شود
-                                                {% else %}
-                                                    ⏸️ کلاس برگزار نمی‌شود
-                                                {% endif %}
-                                            </div>
-                                    
-                                    <!-- Admin Controls -->
-                                    {% if user.is_staff %}
-                                    <div class="admin-controls">
-                                        <div class="admin-buttons">
-                                            <button class="admin-btn hold-btn {% if room_info.schedule.is_holding %}active{% endif %}" 
-                                                    onclick="toggleClassHolding({{ room_info.schedule.id }}, true)"
-                                                    title="علامت‌گذاری به عنوان برگزار شونده">
-                                                ✅ برگزار می‌شود
-                                            </button>
-                                            <button class="admin-btn not-hold-btn {% if not room_info.schedule.is_holding %}active{% endif %}" 
-                                                    onclick="toggleClassHolding({{ room_info.schedule.id }}, false)"
-                                                    title="علامت‌گذاری به عنوان برگزار نشونده">
-                                                ⏸️ برگزار نمی‌شود
-                                            </button>
-                                        </div>
-                                        <div class="admin-info">
-                                            <small>مدیریت وضعیت کلاس</small>
-                                        </div>
-                                    </div>
-                                    {% endif %}
-                                        </div>
-                                    {% else %}
-                                        <div class="empty-room">
-                                            کلاسی برنامه‌ریزی نشده
-                                        </div>
-                                    {% endif %}
-                                </div>
-                            </div>
-                        {% endfor %}
-                    
+                    {% endfor %}
                 </div>
             </div>
             {% endfor %}

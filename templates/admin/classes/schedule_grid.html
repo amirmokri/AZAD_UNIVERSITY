@@ -1,0 +1,748 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static admin_urls admin_extras %}
+
+{% block title %}{{ title }} | {{ site_title|default:_('Django site admin') }}{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+<style>
+/* ---------- Timeline Grid Layout ---------- */
+.timeline-wrapper {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+  overflow: hidden;
+  margin-top: 18px;
+}
+
+.timeline-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #fff;
+  padding: 18px 22px;
+}
+
+.timeline-controls {
+  display: flex; gap: 10px; flex-wrap: wrap;
+  background: #f8f9fa; border-bottom: 1px solid #e9ecef; padding: 12px 16px;
+}
+
+.timeline-grid {
+  /* 1st column = sticky room column (120px), remaining columns = time slots */
+  display: grid;
+  grid-template-columns: 120px repeat({{ total_slots }}, 1fr);
+  position: relative;
+}
+
+.sticky-room-col, .sticky-rail {
+  position: sticky;
+  left: 0;
+  z-index: 5;
+}
+
+.sticky-room-col {
+  background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+  border-right: 2px solid #2196f3;
+  box-shadow: 2px 0 4px rgba(0,0,0,0.06);
+}
+
+.room-cell {
+  padding: 10px; font-weight: 700; color: #1565c0; min-height: 64px;
+  border-bottom: 1px solid #eef2f7;
+}
+
+/* Rails (top two rows) */
+.rails {
+  display: contents; /* we position rail cells directly in the grid */
+}
+
+.rail-label {
+  background: #1e88e5; color: #fff; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  border-right: 2px solid #1976d2;
+  padding: 8px 10px;
+}
+.rail-a { background: linear-gradient(135deg, #43a047, #66bb6a); }
+.rail-b { background: linear-gradient(135deg, #fb8c00, #ffb300); color: #212529; }
+
+.rail-cell {
+  background: rgba(0,0,0,0.03);
+  border: 1px solid rgba(0,0,0,0.05);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 600;
+}
+
+/* Time ticks row */
+.tick-label {
+  background: #eef2f7; color: #5b6b7b;
+  font-size: 11px; padding: 6px 4px; text-align: center;
+  border-right: 1px dashed #dbe3ec;
+  position: sticky; top: 0; z-index: 4;
+}
+
+/* Per-room track (one grid row per room) */
+.track-sep { grid-column: 1 / -1; height: 1px; background: #f1f3f5; }
+
+.slot-bg {
+  background: #fafbfc;
+  border-right: 1px solid #f0f3f7;
+  min-height: 64px;
+}
+
+.clickable-slot {
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.clickable-slot:hover {
+  background: #e3f2fd;
+  border: 1px dashed #2196f3;
+}
+
+/* Class blocks */
+.block {
+  position: relative;
+  margin: 3px;
+  padding: 8px 6px 8px 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(0,0,0,0.08);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+  font-size: 12px; line-height: 1.2;
+  cursor: pointer;
+  display: flex; flex-direction: column; justify-content: center; align-items: center;
+}
+.block.holding { background: linear-gradient(135deg, #e3f2fd, #bbdefb); border-color: #2196f3; }
+.block.not-holding { background: linear-gradient(135deg, #ffebee, #ffcdd2); border-color: #e57373; }
+
+.block .title { font-weight: 700; color: #1565c0; text-align: center; }
+.block .code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 700; font-size: 11px; color: #1976d2; }
+.block .teacher { color: #424242; font-size: 11px; }
+.block .meta { color: #666; font-size: 11px; }
+
+.credit-badge {
+  position: absolute; top: 6px; right: 6px;
+  width: 20px; height: 20px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 800; color: #fff;
+  border: 2px solid #fff;
+  background: #66bb6a; /* default for ≤2 credits */
+}
+.credit-badge.three-plus { background: #ffa000; }
+
+/* Hover emphasize */
+.block:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(33,150,243,0.25); }
+
+/* Grid helpers */
+.col-1 { grid-column: 1 / 2; }
+.sticky-left { position: sticky; left: 0; z-index: 6; }
+
+/* Export bar */
+.export-bar { padding: 14px 16px; text-align: center; background: #f8f9fa; border-top: 1px solid #e9ecef; }
+.export-btn {
+  display: inline-block; padding: 10px 16px; border-radius: 8px; text-decoration: none; font-weight: 700;
+  background: linear-gradient(135deg, #28a745, #20c997); color: #fff; border: 2px solid transparent;
+}
+.export-btn:hover { transform: translateY(-1px); }
+
+/* make the grid scrollable horizontally */
+.timeline-scroll { overflow-x: auto; }
+
+/* ---------- Enhanced Modal Styles ---------- */
+.modal {
+  position: fixed;
+  z-index: 1000;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-content {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+  width: 90%;
+  max-width: 600px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.modal-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 20px 24px;
+  border-radius: 12px 12px 0 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: 1.4rem;
+  font-weight: 600;
+}
+
+.close {
+  color: white;
+  font-size: 28px;
+  font-weight: bold;
+  cursor: pointer;
+  line-height: 1;
+  transition: opacity 0.2s;
+}
+
+.close:hover {
+  opacity: 0.7;
+}
+
+.modal-body {
+  padding: 24px;
+  overflow-y: auto;
+  flex: 1;
+  max-height: calc(90vh - 140px);
+}
+
+.modal-actions {
+  padding: 20px 24px;
+  background: #f8f9fa;
+  border-top: 1px solid #e9ecef;
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  flex-shrink: 0;
+}
+
+/* Form Styles */
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 600;
+  color: #333;
+  font-size: 14px;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 2px solid #e1e5e9;
+  border-radius: 8px;
+  font-size: 14px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  background: white;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.form-group select {
+  cursor: pointer;
+}
+
+.form-group textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.info-box {
+  background: #f8f9fa;
+  padding: 16px;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+  margin-bottom: 20px;
+}
+
+.info-box div {
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+.info-box div:last-child {
+  margin-bottom: 0;
+}
+
+/* Button Styles */
+.btn {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-decoration: none;
+  display: inline-block;
+  text-align: center;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.btn-secondary {
+  background: #6c757d;
+  color: white;
+}
+
+.btn-secondary:hover {
+  background: #5a6268;
+  transform: translateY(-1px);
+}
+
+.btn-danger {
+  background: #dc3545;
+  color: white;
+}
+
+.btn-danger:hover {
+  background: #c82333;
+  transform: translateY(-1px);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .modal-content {
+    width: 95%;
+    max-height: 95vh;
+  }
+  
+  .form-row {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+  
+  .modal-actions {
+    flex-direction: column;
+  }
+  
+  .btn {
+    width: 100%;
+    margin-bottom: 8px;
+  }
+}
+
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="timeline-wrapper" id="timelineRoot">
+  <div class="timeline-header">
+    <h1 style="margin:0">{{ title }}</h1>
+    {% if selected_day and selected_floor %}
+      <p style="margin:.25rem 0 0 0">روز: {{ selected_day|title }} — طبقه: {{ selected_floor }}</p>
+    {% endif %}
+  </div>
+
+  <div class="timeline-controls">
+    <a class="button" href="{% url 'admin:classes_classschedule_chart' %}">انتخاب روز</a>
+    {% if selected_day %}
+      <a class="button" href="{% url 'admin:classes_classschedule_floor_selection' day=selected_day %}">انتخاب طبقه</a>
+    {% endif %}
+    <a class="button" href="{% url 'admin:classes_classschedule_changelist' %}">لیست برنامه‌ها</a>
+  </div>
+
+  <div class="timeline-scroll">
+    <div class="timeline-grid">
+
+      {# ---------- Rail Row A: ≤2 credits (e.g., 105 minutes) ---------- #}
+      <div class="sticky-room-col rail-label rail-a" style="grid-column: 1 / 2; position: sticky; left:0; top: 0; z-index:7;">
+        ≤2 واحد ({{ BAND_A_MIN|default:105 }} دقیقه)
+      </div>
+      {% for win in band_a_windows %}
+        <div class="rail-cell" style="grid-column: {{ win.start_idx|add:2 }} / span {{ win.span }}; position: sticky; top: 0; z-index:6;">
+          {{ win.label }}
+        </div>
+      {% endfor %}
+
+      {# ---------- Rail Row B: ≥3 credits (e.g., 150 minutes) ---------- #}
+      <div class="sticky-room-col rail-label rail-b" style="grid-column: 1 / 2; position: sticky; left:0; top: 34px; z-index:7;">
+        ≥3 واحد ({{ BAND_B_MIN|default:150 }} دقیقه)
+      </div>
+      {% for win in band_b_windows %}
+        <div class="rail-cell" style="grid-column: {{ win.start_idx|add:2 }} / span {{ win.span }}; position: sticky; top: 34px; z-index:6;">
+          {{ win.label }}
+        </div>
+      {% endfor %}
+
+      {# ---------- Time ticks row ---------- #}
+      <div class="sticky-room-col" style="grid-column: 1 / 2; position: sticky; left: 0; top: 68px; background:#eef2f7; z-index:7; font-weight:700; display:flex;align-items:center;justify-content:center;">ساعت</div>
+      {% for tick in slots %}
+        <div class="tick-label" style="grid-column: {{ forloop.counter|add:1 }} / span 1;">
+          {{ tick }}
+        </div>
+      {% endfor %}
+
+      {# ---------- Room tracks ---------- #}
+      {% for room in rooms %}
+        {# room label sticky cell #}
+        <div class="sticky-room-col room-cell" style="grid-column: 1 / 2;">
+          <div><strong>{{ room.room_number }}</strong></div>
+          <div style="font-size:11px;color:#6c757d;">طبقه {{ room.floor.floor_number }}</div>
+          <div style="font-size:11px;color:#6c757d;">{{ room.get_room_type_display }}</div>
+        </div>
+
+        {# background slots for the row (clickable empty slots) #}
+        {% for tick in slots %}
+          <div class="slot-bg clickable-slot" 
+               style="grid-column: {{ forloop.counter|add:1 }} / span 1;"
+               data-room="{{ room.id }}"
+               data-day="{{ selected_day }}"
+               data-time-start="{{ tick }}"
+               data-time-end="{{ tick }}"
+               onclick="openScheduleModal(this)">
+          </div>
+        {% endfor %}
+
+        {# blocks in this room #}
+        {% for b in per_room_blocks|get_item:room.id %}
+          <div class="block {% if b.is_holding %}holding{% else %}not-holding{% endif %}"
+               style="grid-column: {{ b.start_idx|add:2 }} / span {{ b.span }};"
+               data-room="{{ room.id }}"
+               data-day="{{ selected_day }}"
+               data-time-start="{{ b.start_label }}"
+               data-time-end="{{ b.end_label }}"
+               onclick="openScheduleModal(this)">
+
+            <div class="credit-badge {% if b.credit_hours >= 3 %}three-plus{% endif %}">
+              {{ b.credit_hours }}
+            </div>
+            <div class="code">{{ b.course_code }}</div>
+            <div class="title">{{ b.course_name }}</div>
+            <div class="teacher">{{ b.teacher_name }}</div>
+            {% if b.semester %}<div class="meta">{{ b.semester }}</div>{% endif %}
+            <input type="hidden" class="schedule-data"
+                   data-schedule-id="{{ b.id }}"
+                   data-course-code="{{ b.course_code }}"
+                   data-course-name="{{ b.course_name }}"
+                   data-teacher-name="{{ b.teacher_name }}"
+                   data-credit="{{ b.credit_hours }}"
+                   data-holding="{{ b.is_holding|yesno:'true,false' }}"
+                   data-semester="{{ b.semester }}"
+                   data-academic-year="{{ b.academic_year }}"
+                   data-notes="{{ b.notes }}"
+                   data-start-time="{{ b.start_label }}"
+                   data-end-time="{{ b.end_label }}"
+                   data-room-number="{{ b.room_number }}"
+                   data-floor="{{ b.floor_number }}"
+            />
+          </div>
+        {% endfor %}
+
+        <div class="track-sep"></div>
+      {% endfor %}
+
+    </div>
+  </div>
+
+  <div class="export-bar">
+    <a href="#" class="export-btn" id="exportPdfBtn">📄 صادرات PDF (کل برنامه طبقه)</a>
+  </div>
+</div>
+
+{# ---------------- Enhanced Modal with Better Styling ---------------- #}
+<div id="scheduleModal" class="modal" style="display:none">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2>مدیریت برنامه کلاسی</h2>
+      <span class="close" onclick="closeScheduleModal()">&times;</span>
+    </div>
+    <div class="modal-body">
+      <form id="scheduleForm" method="post">
+        {% csrf_token %}
+        <input type="hidden" id="scheduleId" name="schedule_id">
+        <input type="hidden" id="roomId" name="room_id">
+        <input type="hidden" id="dayOfWeek" name="day_of_week">
+        <input type="hidden" id="timeStart" name="start_time">
+        <input type="hidden" id="timeEnd" name="end_time">
+        
+        <div class="form-group">
+          <label>اطلاعات:</label>
+          <div id="scheduleInfo" class="info-box">
+            <div><strong>اتاق:</strong> <span id="roomInfo"></span></div>
+            <div><strong>روز:</strong> <span id="dayInfo"></span></div>
+            <div><strong>زمان:</strong> <span id="timeInfo"></span></div>
+          </div>
+        </div>
+        
+        <div class="form-row">
+          <div class="form-group">
+            <label for="courseSelect">درس *</label>
+            <select id="courseSelect" name="course" required>
+              <option value="">انتخاب درس...</option>
+              {% for course in courses %}
+                <option value="{{ course.id }}">{{ course.course_name }} ({{ course.course_code }})</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="teacherSelect">استاد *</label>
+            <select id="teacherSelect" name="teacher" required>
+              <option value="">انتخاب استاد...</option>
+              {% for teacher in teachers %}
+                <option value="{{ teacher.id }}">{{ teacher.full_name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+        
+        <div class="form-row">
+          <div class="form-group">
+            <label for="startTimeInput">ساعت شروع *</label>
+            <input id="startTimeInput" name="start_time_input" type="time" required>
+          </div>
+          <div class="form-group">
+            <label for="endTimeInput">ساعت پایان *</label>
+            <input id="endTimeInput" name="end_time_input" type="time" required>
+          </div>
+        </div>
+        
+        <div class="form-row">
+          <div class="form-group">
+            <label for="semester">نیمسال</label>
+            <input id="semester" name="semester" type="text" placeholder="مثال: 1403-1">
+          </div>
+          <div class="form-group">
+            <label for="academicYear">سال تحصیلی</label>
+            <input id="academicYear" name="academic_year" type="text" placeholder="مثال: 1403-1404">
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label for="isHolding">وضعیت برگزاری</label>
+          <select id="isHolding" name="is_holding">
+            <option value="true">کلاس برگزار می‌شود</option>
+            <option value="false">کلاس برگزار نمی‌شود</option>
+          </select>
+        </div>
+        
+        <div class="form-group">
+          <label for="notes">یادداشت‌ها</label>
+          <textarea id="notes" name="notes" rows="3" placeholder="یادداشت‌های اضافی..."></textarea>
+        </div>
+      </form>
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-secondary" onclick="closeScheduleModal()">لغو</button>
+      <button type="button" class="btn btn-primary" onclick="saveSchedule()">ذخیره</button>
+      <button type="button" class="btn btn-danger" onclick="deleteSchedule()" id="deleteBtn" style="display:none">حذف</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js" defer></script>
+
+<script>
+// ---------- Modal open/close (adapted to grid blocks) ----------
+function openScheduleModal(el) {
+  const data = el.querySelector('.schedule-data');
+  const modal = document.getElementById('scheduleModal');
+  const isExistingSchedule = data && data.dataset.scheduleId;
+
+  // Get room info from element data attributes
+  const roomNumber = el.dataset.roomNumber || (data ? data.dataset.roomNumber : '');
+  const floorNumber = el.dataset.floorNumber || (data ? data.dataset.floor : '');
+  const startTime = el.dataset.timeStart || (data ? data.dataset.startTime : '');
+  const endTime = el.dataset.timeEnd || (data ? data.dataset.endTime : '');
+
+  // Info for header
+  document.getElementById('roomInfo').textContent = roomNumber + ' (طبقه ' + floorNumber + ')';
+  document.getElementById('dayInfo').textContent = getDayName("{{ selected_day|default:'' }}");
+  document.getElementById('timeInfo').textContent = startTime + ' – ' + endTime;
+
+  // Hidden fields
+  document.getElementById('roomId').value = el.dataset.room || '';
+  document.getElementById('dayOfWeek').value = "{{ selected_day|default:'' }}";
+  document.getElementById('timeStart').value = startTime;
+  document.getElementById('timeEnd').value = endTime;
+
+  // Fill edit fields
+  if (isExistingSchedule) {
+    // Existing schedule - fill all fields
+    document.getElementById('scheduleId').value = data.dataset.scheduleId || '';
+    document.getElementById('isHolding').value = data.dataset.holding === 'true' ? 'true' : 'false';
+    document.getElementById('notes').value = data.dataset.notes || '';
+    document.getElementById('academicYear').value = data.dataset.academicYear || '';
+    document.getElementById('semester').value = data.dataset.semester || '';
+    document.getElementById('startTimeInput').value = startTime;
+    document.getElementById('endTimeInput').value = endTime;
+  } else {
+    // Empty slot - clear fields and set default times
+    document.getElementById('scheduleId').value = '';
+    document.getElementById('isHolding').value = 'true';
+    document.getElementById('notes').value = '';
+    document.getElementById('academicYear').value = '';
+    document.getElementById('semester').value = '';
+    document.getElementById('startTimeInput').value = startTime;
+    document.getElementById('endTimeInput').value = endTime;
+  }
+
+  // Clear course and teacher selections
+  document.getElementById('courseSelect').value = '';
+  document.getElementById('teacherSelect').value = '';
+
+  // If schedule exists, show delete button
+  document.getElementById('deleteBtn').style.display = isExistingSchedule ? 'inline-block' : 'none';
+  modal.style.display = 'block';
+}
+
+function closeScheduleModal(){ document.getElementById('scheduleModal').style.display = 'none'; }
+
+window.onclick = function(e){
+  const modal = document.getElementById('scheduleModal');
+  if (e.target === modal) closeScheduleModal();
+};
+
+function getDayName(day){
+  const dict = {'saturday':'شنبه','sunday':'یکشنبه','monday':'دوشنبه','tuesday':'سه‌شنبه','wednesday':'چهارشنبه','thursday':'پنجشنبه','friday':'جمعه'};
+  return dict[day] || day || '';
+}
+
+// ---------- Save/Delete (URLs same as your current endpoints) ----------
+function saveSchedule(){
+  const form = document.getElementById('scheduleForm');
+  const formData = new FormData(form);
+  
+  // Use time input values instead of hidden fields
+  const startTimeInput = document.getElementById('startTimeInput').value;
+  const endTimeInput = document.getElementById('endTimeInput').value;
+  
+  if (startTimeInput) {
+    formData.set('start_time', startTimeInput);
+  }
+  if (endTimeInput) {
+    formData.set('end_time', endTimeInput);
+  }
+  
+  fetch('{% url "admin:classes_classschedule_save" %}', {
+    method: 'POST',
+    body: formData,
+    headers: {'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value}
+  }).then(r=>r.json())
+   .then(d=>{
+      if(d.success){ alert('ذخیره شد'); location.reload(); }
+      else{ alert('خطا: ' + d.error); }
+   })
+   .catch(()=>alert('خطا در ارتباط با سرور'));
+}
+
+function deleteSchedule(){
+  if(!confirm('حذف این برنامه؟')) return;
+  const id = document.getElementById('scheduleId').value;
+  fetch('{% url "admin:classes_classschedule_delete" %}',{
+    method:'POST',
+    headers:{
+      'Content-Type':'application/json',
+      'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+    },
+    body: JSON.stringify({schedule_id: id})
+  }).then(r=>r.json())
+    .then(d=>{
+      if(d.success){ alert('حذف شد'); location.reload(); }
+      else{ alert('خطا: ' + d.error); }
+    })
+    .catch(()=>alert('خطا در ارتباط با سرور'));
+}
+
+// ---------- Enhanced PDF export to capture entire grid ----------
+document.addEventListener('DOMContentLoaded', function(){
+  const btn = document.getElementById('exportPdfBtn');
+  if(!btn) return;
+  btn.addEventListener('click', async function(e){
+    e.preventDefault();
+    const { jsPDF } = window.jspdf;
+    const el = document.getElementById('timelineRoot');
+    const timelineScroll = el.querySelector('.timeline-scroll');
+
+    // Store original styles
+    const originalStyles = {
+      width: el.style.width,
+      height: el.style.height,
+      overflow: timelineScroll ? timelineScroll.style.overflow : '',
+      maxWidth: el.style.maxWidth,
+      maxHeight: el.style.maxHeight
+    };
+
+    try {
+      // Remove scroll constraints and expand to full content
+      if (timelineScroll) {
+        timelineScroll.style.overflow = 'visible';
+      }
+      el.style.width = 'auto';
+      el.style.height = 'auto';
+      el.style.maxWidth = 'none';
+      el.style.maxHeight = 'none';
+
+      // Wait a moment for layout to settle
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Capture with full dimensions
+      const canvas = await html2canvas(el, { 
+        scale: 1.5, 
+        backgroundColor: '#ffffff',
+        width: el.scrollWidth,
+        height: el.scrollHeight,
+        scrollX: 0,
+        scrollY: 0,
+        useCORS: true,
+        allowTaint: true
+      });
+
+      const imgData = canvas.toDataURL('image/png');
+      
+      // Create PDF with dynamic dimensions
+      const pdf = new jsPDF('l', 'pt', [canvas.width, canvas.height]);
+      pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+      
+      // Generate filename with timestamp
+      const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+      const filename = `schedule-grid-{{ selected_day|default:"all" }}-floor-{{ selected_floor|default:"all" }}-${timestamp}.pdf`;
+      pdf.save(filename);
+
+    } catch (error) {
+      console.error('PDF export error:', error);
+      alert('خطا در صادرات PDF: ' + error.message);
+    } finally {
+      // Restore original styles
+      el.style.width = originalStyles.width;
+      el.style.height = originalStyles.height;
+      el.style.maxWidth = originalStyles.maxWidth;
+      el.style.maxHeight = originalStyles.maxHeight;
+      if (timelineScroll) {
+        timelineScroll.style.overflow = originalStyles.overflow;
+      }
+    }
+  });
+});
+</script>
+{% endblock %}
