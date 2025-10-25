@@ -31,7 +31,7 @@
             <a href="{% url 'classes:class_affairs' faculty.id %}" class="faculty-card">
                 <div class="faculty-icon">
                     {% if faculty.faculty_image %}
-                        <img src="{% static faculty.get_image_url %}" 
+                        <img src="{% static 'images/'|add:faculty.faculty_image %}" 
                              alt="{{ faculty.faculty_name }}" 
                              class="faculty-image"
                              onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
