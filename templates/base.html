@@ -17,8 +17,8 @@
     <meta name="theme-color" content="#667eea">
     
     <!-- Main CSS -->
-    <link rel="stylesheet" href="{% static 'css/style.css' %}">
-    <link rel="stylesheet" href="{% static 'css/global-improvements.css' %}">
+    <link rel="stylesheet" href="{% static 'css/style.css' %}?v=20251025">
+    <link rel="stylesheet" href="{% static 'css/global-improvements.css' %}?v=20251025">
     
     <!-- Additional CSS for specific pages -->
     {% block extra_css %}{% endblock %}
@@ -76,11 +76,7 @@
             }
         }
         
-        /* Prevent horizontal scroll */
-        * {
-            max-width: 100%;
-        }
-        
+        /* Media sizing */
         img, video, iframe {
             max-width: 100%;
             height: auto;
