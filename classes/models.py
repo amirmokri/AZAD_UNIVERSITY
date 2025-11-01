@@ -13,8 +13,13 @@ All models include proper validation, error handling, and Persian language suppo
 """
 
 from django.db import models
+from django.contrib.auth.models import User, Permission
+from django.contrib.contenttypes.models import ContentType
+from django.db.models.signals import post_save
+from django.dispatch import receiver
 from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator, MaxValueValidator
+from django.utils import timezone
 
 
 class Faculty(models.Model):
@@ -226,6 +231,8 @@ class ClassSchedule(models.Model):
         verbose_name="کلاس برگزار می‌شود",
         help_text="آیا این کلاس در حال حاضر برگزار می‌شود؟"
     )
+    # Timestamp of when admin cancelled the class; used to auto-reset after 2 hours
+    cancelled_at = models.DateTimeField(null=True, blank=True, verbose_name="تاریخ لغو توسط ادمین")
     is_active = models.BooleanField(default=True, verbose_name="فعال")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="تاریخ ایجاد")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="تاریخ بروزرسانی")
@@ -465,6 +472,75 @@ class ClassSchedule(models.Model):
         
         super().save(*args, **kwargs)
 
+    @classmethod
+    def auto_reset_cancelled_schedules(cls):
+        """
+        Auto-reset classes that were cancelled more than 2 hours ago.
+
+        This updates records where is_holding=False and cancelled_at is older than 2 hours,
+        setting is_holding=True and clearing cancelled_at.
+        """
+        try:
+            threshold = timezone.now() - timezone.timedelta(hours=2)
+            cls.objects.filter(is_holding=False, cancelled_at__isnull=False, cancelled_at__lte=threshold).update(
+                is_holding=True,
+                cancelled_at=None,
+                updated_at=timezone.now(),
+            )
+        except Exception:
+            # Never raise from maintenance path
+            pass
+
+
+class ScheduleFlag(models.Model):
+    """Student-reported flag for a specific class schedule.
+
+    Students can report either that the class is not holding or the data is wrong.
+    Flags are scoped by faculty for admin filtering.
+    """
+
+    REASON_NOT_HOLDING = 'not_holding'
+    REASON_DATA_WRONG = 'data_wrong'
+    REASON_CHOICES = [
+        (REASON_NOT_HOLDING, 'کلاس برگزار نمی‌شود'),
+        (REASON_DATA_WRONG, 'اطلاعات کلاس اشتباه است'),
+    ]
+
+    schedule = models.ForeignKey('ClassSchedule', on_delete=models.CASCADE, related_name='flags', verbose_name='کلاس')
+    faculty = models.ForeignKey('Faculty', on_delete=models.CASCADE, related_name='schedule_flags', verbose_name='دانشکده')
+    reason = models.CharField(max_length=32, choices=REASON_CHOICES, verbose_name='دلیل')
+    description = models.TextField(null=True, blank=True, max_length=1000, verbose_name='توضیح دانشجو')
+    reporter_ip = models.GenericIPAddressField(null=True, blank=True, verbose_name='IP گزارش‌دهنده')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='تاریخ ثبت')
+
+    class Meta:
+        verbose_name = 'گزارش دانشجویی'
+        verbose_name_plural = 'گزارش‌های دانشجویی'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['faculty', 'created_at']),
+            models.Index(fields=['schedule', 'created_at']),
+        ]
+
+    def __str__(self):
+        return f"#{self.id} - {self.get_reason_display()} - {self.schedule}"
+
+    @staticmethod
+    def infer_faculty_from_schedule(schedule: 'ClassSchedule'):
+        """Safely infer faculty from schedule via course or room->floor.
+
+        Returns:
+            Faculty | None
+        """
+        try:
+            if getattr(schedule, 'course', None) and getattr(schedule.course, 'faculty', None):
+                return schedule.course.faculty
+            if getattr(schedule, 'room', None) and getattr(schedule.room, 'floor', None) and getattr(schedule.room.floor, 'faculty', None):
+                return schedule.room.floor.faculty
+        except Exception:
+            pass
+        return None
+
 
 class ImportJob(models.Model):
     """Audit log for Excel imports of schedules."""
@@ -494,3 +570,210 @@ class ImportJob(models.Model):
 
     def __str__(self):
         return f"{self.faculty} - {self.semester} - {self.academic_year} ({self.status})"
+
+
+class Ad(models.Model):
+    """Advertising model for displaying ads on teacher_classes page."""
+    
+    name = models.CharField(max_length=200, verbose_name="نام تبلیغ")
+    image = models.ImageField(
+        upload_to='ads/',
+        verbose_name="تصویر تبلیغ",
+        help_text="تصویر تبلیغ به صورت full-bleed نمایش داده می‌شود"
+    )
+    link = models.URLField(verbose_name="لینک تبلیغ", help_text="لینک مقصد هنگام کلیک")
+    is_active = models.BooleanField(default=True, verbose_name="فعال")
+    start_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="شروع نمایش",
+        help_text="تاریخ و ساعت شروع نمایش (اختیاری)"
+    )
+    end_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="پایان نمایش",
+        help_text="تاریخ و ساعت پایان نمایش (اختیاری)"
+    )
+    priority = models.IntegerField(
+        default=0,
+        verbose_name="اولویت",
+        help_text="تبلیغات با اولویت بالاتر ابتدا نمایش داده می‌شوند"
+    )
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="تاریخ ایجاد")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="تاریخ بروزرسانی")
+    
+    class Meta:
+        verbose_name = "تبلیغ"
+        verbose_name_plural = "تبلیغات"
+        ordering = ['-priority', '-created_at']
+        indexes = [
+            models.Index(fields=['is_active', 'priority']),
+            models.Index(fields=['start_at', 'end_at']),
+        ]
+    
+    def __str__(self):
+        return self.name
+    
+    def is_servable(self):
+        """
+        Check if ad is currently servable (active and within time window).
+        
+        Returns:
+            bool: True if ad should be served, False otherwise
+        """
+        if not self.is_active:
+            return False
+        
+        now = timezone.now()
+        
+        if self.start_at and now < self.start_at:
+            return False
+        
+        if self.end_at and now > self.end_at:
+            return False
+        
+        return True
+    
+    @classmethod
+    def get_servable_ads(cls):
+        """
+        Get all currently servable ads, ordered by priority.
+        
+        Returns:
+            QuerySet: Servable ads queryset
+        """
+        now = timezone.now()
+        return cls.objects.filter(
+            is_active=True
+        ).filter(
+            models.Q(start_at__isnull=True) | models.Q(start_at__lte=now)
+        ).filter(
+            models.Q(end_at__isnull=True) | models.Q(end_at__gte=now)
+        ).order_by('-priority', '-created_at')
+
+
+class AdTracking(models.Model):
+    """Tracking model for ad impressions and clicks."""
+    
+    EVENT_TYPE_CHOICES = [
+        ('impression', 'نمایش'),
+        ('click', 'کلیک'),
+    ]
+    
+    ad = models.ForeignKey(Ad, on_delete=models.CASCADE, related_name='trackings', verbose_name="تبلیغ")
+    event_type = models.CharField(max_length=20, choices=EVENT_TYPE_CHOICES, verbose_name="نوع رویداد")
+    date = models.DateField(verbose_name="تاریخ", db_index=True)
+    count = models.PositiveIntegerField(default=0, verbose_name="تعداد")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="تاریخ ایجاد")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="تاریخ بروزرسانی")
+    
+    class Meta:
+        verbose_name = "ردیابی تبلیغ"
+        verbose_name_plural = "ردیابی تبلیغات"
+        ordering = ['-date', '-updated_at']
+        unique_together = ['ad', 'event_type', 'date']
+        indexes = [
+            models.Index(fields=['ad', 'event_type', 'date']),
+            models.Index(fields=['date']),
+        ]
+    
+    def __str__(self):
+        event_display = dict(self.EVENT_TYPE_CHOICES).get(self.event_type, self.event_type)
+        return f"{self.ad.name} - {event_display} - {self.date} ({self.count})"
+    
+    @classmethod
+    def record_event(cls, ad_id, event_type, date=None):
+        """
+        Record an impression or click event for an ad.
+        
+        Args:
+            ad_id: ID of the ad
+            event_type: 'impression' or 'click'
+            date: Optional date (defaults to today)
+        
+        Returns:
+            AdTracking: The tracking record
+        """
+        if date is None:
+            date = timezone.now().date()
+        
+        tracking, created = cls.objects.get_or_create(
+            ad_id=ad_id,
+            event_type=event_type,
+            date=date,
+            defaults={'count': 1}
+        )
+        
+        if not created:
+            tracking.count += 1
+            tracking.save(update_fields=['count', 'updated_at'])
+        
+        return tracking
+
+
+class FacultyAdminProfile(models.Model):
+    """Profile linking a staff user to a specific faculty for scoped admin access."""
+
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="faculty_admin_profile", verbose_name="کاربر")
+    faculty = models.ForeignKey(Faculty, on_delete=models.SET_NULL, null=True, blank=True, related_name="faculty_admins", verbose_name="دانشکده")
+    is_active = models.BooleanField(default=True, verbose_name="فعال")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="تاریخ ایجاد")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="تاریخ بروزرسانی")
+
+    class Meta:
+        verbose_name = "پروفایل ادمین دانشکده"
+        verbose_name_plural = "پروفایل‌های ادمین دانشکده"
+        indexes = [
+            models.Index(fields=["user"]),
+            models.Index(fields=["faculty"]),
+        ]
+
+    def __str__(self):
+        faculty_name = self.faculty.faculty_name if self.faculty else "بدون دانشکده"
+        return f"{self.user.username} → {faculty_name}"
+
+
+@receiver(post_save, sender=User)
+def create_or_update_faculty_admin_profile(sender, instance, created, **kwargs):
+    """Ensure every user has an associated FacultyAdminProfile for scoping when needed."""
+    try:
+        if created:
+            FacultyAdminProfile.objects.create(user=instance)
+        else:
+            # Touch the profile to update timestamps if it exists
+            FacultyAdminProfile.objects.get_or_create(user=instance)
+    except Exception:
+        # Silent guard to avoid interrupting user save in edge cases
+        pass
+
+
+def _grant_faculty_admin_permissions(user):
+    """Grant minimal model permissions to a faculty admin user and ensure staff flag."""
+    try:
+        if user.is_superuser:
+            return
+        if not user.is_staff:
+            user.is_staff = True
+            user.save(update_fields=["is_staff"])
+        # Allowed models for faculty admins
+        from .models import Teacher, Course, Floor, Room, ClassSchedule  # local import to avoid app registry issues
+        allowed_models = [Teacher, Course, Floor, Room, ClassSchedule]
+        for model in allowed_models:
+            ct = ContentType.objects.get_for_model(model)
+            for action in ["view", "add", "change", "delete"]:
+                codename = f"{action}_{model._meta.model_name}"
+                try:
+                    perm = Permission.objects.get(content_type=ct, codename=codename)
+                    user.user_permissions.add(perm)
+                except Permission.DoesNotExist:
+                    continue
+    except Exception:
+        # Never block profile save if permission grant fails
+        pass
+
+
+@receiver(post_save, sender=FacultyAdminProfile)
+def ensure_faculty_admin_permissions(sender, instance, created, **kwargs):
+    """Ensure linked user has staff flag and the right model permissions after profile save."""
+    _grant_faculty_admin_permissions(instance.user)

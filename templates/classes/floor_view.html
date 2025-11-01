@@ -870,7 +870,7 @@
                 <!-- Rooms Grid - Compact 2-Column Layout -->
                 <div class="rooms-grid">
                     {% for room_info in floor_info.all_rooms %}
-                    <div class="room-card {% if room_info.schedule %}{% if room_info.schedule.student_reported_not_holding %}student-cancelled{% elif room_info.schedule.is_holding %}has-class{% else %}not-held{% endif %}{% else %}empty-room-card{% endif %}">
+                    <div class="room-card {% if room_info.schedule %}{% if room_info.schedule.is_holding %}has-class{% else %}not-held{% endif %}{% else %}empty-room-card{% endif %}" {% if room_info.schedule %}data-schedule-id="{{ room_info.schedule.id }}"{% endif %}>
                         <div class="room-header">
                             <h3 class="room-number">{{ room_info.room.room_number }}</h3>
                             <p class="room-type">{{ room_info.room.get_room_type_display }}</p>
@@ -922,36 +922,13 @@
                                     {% endif %}
                                 </div>
                                 
-                                <div class="holding-status {% if room_info.schedule.student_reported_not_holding %}student-cancelled{% elif room_info.schedule.is_holding %}held{% else %}not-held{% endif %}">
-                                    {% if room_info.schedule.student_reported_not_holding %}
-                                        ⚠️ دانشجویان گزارش داده‌اند: کلاس برگزار نمی‌شود
-                                    {% elif room_info.schedule.is_holding %}
-                                        ✅ کلاس برگزار می‌شود
-                                    {% else %}
-                                        ⏸️ کلاس برگزار نمی‌شود
-                                    {% endif %}
+                                <!-- Student Flag Button -->
+                                <div class="student-flag" style="margin-top:12px; display:flex; justify-content:flex-end;">
+                                    <button class="flag-btn" data-sid="{{ room_info.schedule.id }}" title="گزارش مشکل این کلاس">
+                                        🚩 گزارش مشکل
+                                    </button>
                                 </div>
-                                
-                                <!-- Admin Controls -->
-                                {% if user.is_staff %}
-                                <div class="admin-controls">
-                                    <div class="admin-buttons">
-                                        <button class="admin-btn hold-btn {% if room_info.schedule.is_holding %}active{% endif %}" 
-                                                onclick="toggleClassHolding({{ room_info.schedule.id }}, true)"
-                                                title="علامت‌گذاری به عنوان برگزار شونده">
-                                            ✅ برگزار می‌شود
-                                        </button>
-                                        <button class="admin-btn not-hold-btn {% if not room_info.schedule.is_holding %}active{% endif %}" 
-                                                onclick="toggleClassHolding({{ room_info.schedule.id }}, false)"
-                                                title="علامت‌گذاری به عنوان برگزار نشونده">
-                                            ⏸️ برگزار نمی‌شود
-                                        </button>
-                                    </div>
-                                    <div class="admin-info">
-                                        <small>مدیریت وضعیت کلاس</small>
-                                    </div>
-                                </div>
-                                {% endif %}
+
                             {% else %}
                                 <div class="empty-room">
                                     کلاسی برنامه‌ریزی نشده
@@ -974,105 +951,19 @@
 </section>
 
 <script>
-// Set user staff status for JavaScript
-window.isUserStaff = {{ user.is_staff|yesno:"true,false" }};
-
-/**
- * Admin functionality for class holding status management
- * Only available to staff users
- */
-
-// Check if user is staff
-function isUserStaff() {
-    return window.isUserStaff || false;
-}
-
-// Toggle class holding status (admin only)
-function toggleClassHolding(scheduleId, isHolding) {
-    // Check if user is staff
-    if (!isUserStaff()) {
-        showNotification('error', 'شما مجاز به انجام این عمل نیستید');
-        return;
+// Info box about the flag feature
+document.addEventListener('DOMContentLoaded', function() {
+    const container = document.querySelector('.floor-view-section .container');
+    if (container && !document.getElementById('flag-info-box')) {
+        const box = document.createElement('div');
+        box.id = 'flag-info-box';
+        box.className = 'announcement-box';
+        box.innerHTML = '<div class="announcement-title">🚩 گزارش مشکل کلاس</div>' +
+            '<div class="announcement-content">اگر کلاس برگزار نمی‌شود یا اطلاعات آن اشتباه است، روی دکمه <strong>🚩 گزارش مشکل</strong> در کارت کلاس کلیک کنید و دلیل را انتخاب کنید. گزارش شما به ادمین دانشکده ارسال می‌شود.</div>';
+        container.insertBefore(box, container.firstChild.nextSibling);
     }
-    
-    // Disable all admin buttons for this schedule
-    const adminButtons = document.querySelectorAll(`[onclick*="${scheduleId}"]`);
-    adminButtons.forEach(btn => btn.disabled = true);
-    
-    const originalTexts = {};
-    adminButtons.forEach(btn => {
-        originalTexts[btn.className] = btn.textContent;
-        btn.textContent = '⏳ در حال بروزرسانی...';
-    });
-    
-    fetch('{% url "classes:admin_toggle_holding" %}', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': getCookie('csrftoken')
-        },
-        body: JSON.stringify({
-            'schedule_id': scheduleId,
-            'is_holding': isHolding
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            // Update button states
-            updateAdminButtonStates(scheduleId, isHolding);
-            
-            // Update room card status
-            updateRoomCardStatus(scheduleId, isHolding);
-            
-            // Show success message
-            showNotification('success', data.message);
-        } else {
-            showNotification('error', data.error || 'خطا در بروزرسانی وضعیت کلاس');
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        showNotification('error', 'خطا در ارتباط با سرور');
-    })
-    .finally(() => {
-        // Re-enable buttons
-        adminButtons.forEach(btn => {
-            btn.disabled = false;
-            btn.textContent = originalTexts[btn.className];
-        });
-    });
-}
-
-// Update admin button states
-function updateAdminButtonStates(scheduleId, isHolding) {
-    const holdBtn = document.querySelector(`[onclick*="toggleClassHolding(${scheduleId}, true)"]`);
-    const notHoldBtn = document.querySelector(`[onclick*="toggleClassHolding(${scheduleId}, false)"]`);
-    
-    if (holdBtn && notHoldBtn) {
-        if (isHolding) {
-            holdBtn.classList.add('active');
-            notHoldBtn.classList.remove('active');
-        } else {
-            holdBtn.classList.remove('active');
-            notHoldBtn.classList.add('active');
-        }
-    }
-}
-
-// Update room card status
-function updateRoomCardStatus(scheduleId, isHolding) {
-    const roomCard = document.querySelector(`[data-schedule-id="${scheduleId}"]`)?.closest('.room-card');
-    if (roomCard) {
-        if (isHolding) {
-            roomCard.classList.remove('not-held', 'student-cancelled');
-            roomCard.classList.add('has-class');
-        } else {
-            roomCard.classList.remove('has-class', 'student-cancelled');
-            roomCard.classList.add('not-held');
-        }
-    }
-}
+});
+// Remove admin toggle scripts (students report only)
 
 // Notification system
 function showNotification(type, message) {
@@ -1140,6 +1031,116 @@ style.textContent = `
     }
 `;
 document.head.appendChild(style);
+
+// Flag modal UI and logic
+const flagModalHtml = `
+    <div id="flagModal" class="flag-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:9998; align-items:center; justify-content:center;">
+        <div class="flag-dialog" style="background:white; border-radius:16px; padding:20px; width:95%; max-width:420px; box-shadow:0 10px 30px rgba(0,0,0,0.2); font-family: 'Vazirmatn', sans-serif;">
+            <h3 style="margin-top:0; font-weight:900; color:#c62828; display:flex; align-items:center; gap:8px;">🚩 گزارش مشکل کلاس</h3>
+            <p style="margin:8px 0 16px; color:#555;">یکی از موارد زیر را انتخاب کنید و در صورت نیاز توضیح کوتاهی بنویسید.</p>
+            <div style="display:flex; flex-direction:column; gap:10px;">
+                <label style="display:flex; gap:8px; align-items:center;"><input type="radio" name="flagReason" value="not_holding"> کلاس برگزار نمی‌شود</label>
+                <label style="display:flex; gap:8px; align-items:center;"><input type="radio" name="flagReason" value="data_wrong"> اطلاعات کلاس اشتباه است</label>
+                <textarea id="flagDesc" rows="3" placeholder="توضیحات (اختیاری)" style="width:100%; border:1px solid #e0e0e0; border-radius:10px; padding:10px; font-family:inherit;"></textarea>
+            </div>
+            <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:16px;">
+                <button id="flagCancelBtn" style="background:#9e9e9e; color:white; border:none; padding:10px 16px; border-radius:10px; font-weight:700; font-family: inherit;">انصراف</button>
+                <button id="flagSubmitBtn" style="background:#f44336; color:white; border:none; padding:10px 16px; border-radius:10px; font-weight:900; font-family: inherit;">ارسال گزارش</button>
+            </div>
+        </div>
+    </div>`;
+
+document.addEventListener('DOMContentLoaded', () => {
+    if (!document.getElementById('flagModal')) {
+        document.body.insertAdjacentHTML('beforeend', flagModalHtml);
+    }
+    // Delegate click for flag buttons
+    document.body.addEventListener('click', function(e) {
+        const btn = e.target.closest('.flag-btn');
+        if (btn && btn.dataset.sid) {
+            e.preventDefault();
+            openFlagModal(btn.dataset.sid);
+        }
+    });
+});
+
+// CSRF cookie helper
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+let currentFlagScheduleId = null;
+function openFlagModal(scheduleId) {
+    currentFlagScheduleId = scheduleId;
+    const modal = document.getElementById('flagModal');
+    modal.style.display = 'flex';
+    modal.querySelector('#flagDesc').value = '';
+    modal.addEventListener('click', (e) => { if (e.target.id === 'flagModal') closeFlagModal(); }, { once: true });
+    document.getElementById('flagCancelBtn').onclick = closeFlagModal;
+    document.getElementById('flagSubmitBtn').onclick = submitFlag;
+}
+function closeFlagModal() {
+    const modal = document.getElementById('flagModal');
+    modal.style.display = 'none';
+}
+function submitFlag() {
+    const reasonInput = document.querySelector('input[name="flagReason"]:checked');
+    const description = document.getElementById('flagDesc').value.trim();
+    if (!reasonInput) {
+        showNotification('error', 'لطفاً دلیل گزارش را انتخاب کنید');
+        return;
+    }
+    fetch('{% url "classes:report_schedule_flag" %}', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+        credentials: 'same-origin',
+        body: JSON.stringify({ schedule_id: currentFlagScheduleId, reason: reasonInput.value, description })
+    }).then(r => r.json()).then(d => {
+        if (d.success) {
+            showNotification('success', d.message || 'گزارش شما ثبت شد');
+            closeFlagModal();
+            showThankYouModal();
+        } else {
+            showNotification('error', d.error || 'خطا در ثبت گزارش');
+        }
+    }).catch(() => showNotification('error', 'خطای ارتباط با سرور'));
+}
+
+// Style for flag button
+const flagBtnStyle = document.createElement('style');
+flagBtnStyle.textContent = `.flag-btn { background: linear-gradient(135deg,#f44336,#d32f2f); color:#fff; border:none; padding:8px 14px; border-radius:12px; font-weight:900; cursor:pointer; box-shadow:0 6px 18px rgba(244,67,54,0.35); font-family:'Vazirmatn',sans-serif; }
+.flag-btn:hover { transform: translateY(-1px); box-shadow:0 8px 24px rgba(244,67,54,0.45); }`;
+document.head.appendChild(flagBtnStyle);
+
+// Thank you modal
+function showThankYouModal() {
+    const id = 'thankYouModal';
+    if (!document.getElementById(id)) {
+        const html = `
+        <div id="${id}" style="position:fixed; inset:0; background:rgba(0,0,0,0.4); display:flex; align-items:center; justify-content:center; z-index:99999;">
+            <div style="background:white; border-radius:16px; padding:24px 28px; width:90%; max-width:420px; box-shadow:0 16px 40px rgba(0,0,0,0.25); text-align:center; font-family:'Vazirmatn',sans-serif;">
+                <div style="font-size:2rem; margin-bottom:10px;">✅</div>
+                <h3 style="margin:0 0 8px; color:#1e3c72; font-weight:900;">از اطلاع‌رسانی شما ممنون</h3>
+                <p style="margin:0; color:#455a64; font-weight:700;">گزارش شما ثبت شد و برای ادمین دانشکده ارسال گردید.</p>
+            </div>
+        </div>`;
+        document.body.insertAdjacentHTML('beforeend', html);
+    }
+    const modal = document.getElementById(id);
+    modal.style.display = 'flex';
+    setTimeout(() => { modal.style.display = 'none'; modal.remove(); }, 2200);
+}
 </script>
 {% endblock %}
 

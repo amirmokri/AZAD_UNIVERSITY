@@ -618,7 +618,7 @@
                     
                     <div class="classes-grid">
                         {% for class in slot_classes %}
-                        <div class="class-card {% if class.student_reported_not_holding %}student-cancelled{% elif class.is_holding %}has-class{% else %}not-held{% endif %}">
+                        <div class="class-card {% if class.is_holding %}has-class{% else %}not-held{% endif %}">
                             <div class="class-card-header">
                                 <h3 class="course-name">{{ class.course.course_name }}</h3>
                                 <p class="course-code">کد: {{ class.course.course_code }}</p>
@@ -668,37 +668,10 @@
                                 </div>
                                 {% endif %}
                             </div>
-                            
-                            <div class="holding-status {% if class.student_reported_not_holding %}student-cancelled{% elif class.is_holding %}held{% else %}not-held{% endif %}">
-                                {% if class.student_reported_not_holding %}
-                                    ⚠️ دانشجویان گزارش داده‌اند: کلاس برگزار نمی‌شود
-                                {% elif class.is_holding %}
-                                    ✅ کلاس برگزار می‌شود
-                                {% else %}
-                                    ⏸️ کلاس برگزار نمی‌شود
-                                {% endif %}
+                            <!-- Student Flag Button -->
+                            <div class="student-flag" style="margin-top:12px; display:flex; justify-content:flex-end;">
+                                <button class="flag-btn" data-sid="{{ class.id }}" title="گزارش مشکل این کلاس">🚩 گزارش مشکل</button>
                             </div>
-                            
-                                <!-- Admin Controls -->
-                                {% if user.is_staff %}
-                                <div class="admin-controls">
-                                    <div class="admin-buttons">
-                                        <button class="admin-btn hold-btn {% if class.is_holding %}active{% endif %}" 
-                                                onclick="toggleClassHolding({{ class.id }}, true)"
-                                                title="علامت‌گذاری به عنوان برگزار شونده">
-                                            ✅ برگزار می‌شود
-                                        </button>
-                                        <button class="admin-btn not-hold-btn {% if not class.is_holding %}active{% endif %}" 
-                                                onclick="toggleClassHolding({{ class.id }}, false)"
-                                                title="علامت‌گذاری به عنوان برگزار نشونده">
-                                            ⏸️ برگزار نمی‌شود
-                                        </button>
-                                    </div>
-                                    <div class="admin-info">
-                                        <small>مدیریت وضعیت کلاس</small>
-                                    </div>
-                                </div>
-                                {% endif %}
                         </div>
                         {% endfor %}
                     </div>
@@ -709,4 +682,633 @@
     </div>
 </div>
 
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Info box about the flag feature under header
+document.addEventListener('DOMContentLoaded', function() {
+    const container = document.querySelector('.teacher-classes-container .container');
+    if (container && !document.getElementById('flag-info-box')) {
+        const box = document.createElement('div');
+        box.id = 'flag-info-box';
+        box.className = 'time-slot-section';
+        box.innerHTML = '<h3 class="time-slot-title">🚩 گزارش مشکل کلاس</h3>' +
+            '<div style="margin-top:10px; color:#444; font-weight:600;">اگر کلاس برگزار نمی‌شود یا اطلاعات آن اشتباه است، با زدن دکمه <strong>🚩 گزارش مشکل</strong> دلیل را انتخاب کنید. گزارش شما به ادمین دانشکده ارسال می‌شود.</div>';
+        container.insertBefore(box, container.children[1] || container.firstChild);
+    }
+});
+
+// Reuse the same modal UI pattern as floor view
+const tcFlagModalHtml = `
+    <div id="tcFlagModal" class="flag-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:9998; align-items:center; justify-content:center;">
+        <div class="flag-dialog" style="background:white; border-radius:16px; padding:20px; width:95%; max-width:420px; box-shadow:0 10px 30px rgba(0,0,0,0.2); font-family: 'Vazirmatn', sans-serif;">
+            <h3 style="margin-top:0; font-weight:900; color:#c62828; display:flex; align-items:center; gap:8px;">🚩 گزارش مشکل کلاس</h3>
+            <p style="margin:8px 0 16px; color:#555;">یکی از موارد زیر را انتخاب کنید و در صورت نیاز توضیح کوتاهی بنویسید.</p>
+            <div style="display:flex; flex-direction:column; gap:10px;">
+                <label style="display:flex; gap:8px; align-items:center;"><input type="radio" name="tcFlagReason" value="not_holding"> کلاس برگزار نمی‌شود</label>
+                <label style="display:flex; gap:8px; align-items:center;"><input type="radio" name="tcFlagReason" value="data_wrong"> اطلاعات کلاس اشتباه است</label>
+                <textarea id="tcFlagDesc" rows="3" placeholder="توضیحات (اختیاری)" style="width:100%; border:1px solid #e0e0e0; border-radius:10px; padding:10px; font-family:inherit;"></textarea>
+            </div>
+            <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:16px;">
+                <button id="tcFlagCancelBtn" style="background:#9e9e9e; color:white; border:none; padding:10px 16px; border-radius:10px; font-weight:700; font-family: inherit;">انصراف</button>
+                <button id="tcFlagSubmitBtn" style="background:#f44336; color:white; border:none; padding:10px 16px; border-radius:10px; font-weight:900; font-family: inherit;">ارسال گزارش</button>
+            </div>
+        </div>
+    </div>`;
+
+let tcCurrentScheduleId = null;
+document.addEventListener('DOMContentLoaded', () => {
+    if (!document.getElementById('tcFlagModal')) {
+        document.body.insertAdjacentHTML('beforeend', tcFlagModalHtml);
+    }
+    document.body.addEventListener('click', function(e) {
+        const btn = e.target.closest('.flag-btn');
+        if (btn && btn.dataset.sid) {
+            e.preventDefault();
+            tcCurrentScheduleId = btn.dataset.sid;
+            const modal = document.getElementById('tcFlagModal');
+            modal.style.display = 'flex';
+            modal.querySelector('#tcFlagDesc').value = '';
+            modal.addEventListener('click', (ev) => { if (ev.target.id === 'tcFlagModal') { modal.style.display = 'none'; } }, { once: true });
+            document.getElementById('tcFlagCancelBtn').onclick = () => { modal.style.display = 'none'; };
+            document.getElementById('tcFlagSubmitBtn').onclick = () => {
+                const reasonInput = document.querySelector('input[name="tcFlagReason"]:checked');
+                const description = document.getElementById('tcFlagDesc').value.trim();
+                if (!reasonInput) { showNotification('error', 'لطفاً دلیل گزارش را انتخاب کنید'); return; }
+                fetch('{% url "classes:report_schedule_flag" %}', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+                    credentials: 'same-origin',
+                    body: JSON.stringify({ schedule_id: tcCurrentScheduleId, reason: reasonInput.value, description })
+                }).then(r => r.json()).then(d => {
+                    if (d.success) { showNotification('success', d.message || 'گزارش شما ثبت شد'); modal.style.display = 'none'; showTcThankYouModal(); }
+                    else { showNotification('error', d.error || 'خطا در ثبت گزارش'); }
+                }).catch(() => showNotification('error', 'خطای ارتباط با سرور'));
+            };
+        }
+    });
+});
+
+// Style for flag button
+(function(){
+    const style = document.createElement('style');
+    style.textContent = `.flag-btn { background: linear-gradient(135deg,#f44336,#d32f2f); color:#fff; border:none; padding:8px 14px; border-radius:12px; font-weight:900; cursor:pointer; box-shadow:0 6px 18px rgba(244,67,54,0.35); font-family:'Vazirmatn',sans-serif; }
+.flag-btn:hover { transform: translateY(-1px); box-shadow:0 8px 24px rgba(244,67,54,0.45); }`;
+    document.head.appendChild(style);
+})();
+
+// CSRF cookie helper for AJAX
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// Thank you modal for teacher classes
+function showTcThankYouModal() {
+    const id = 'tcThankYouModal';
+    if (!document.getElementById(id)) {
+        const html = `
+        <div id="${id}" style="position:fixed; inset:0; background:rgba(0,0,0,0.4); display:flex; align-items:center; justify-content:center; z-index:99999;">
+            <div style="background:white; border-radius:16px; padding:24px 28px; width:90%; max-width:420px; box-shadow:0 16px 40px rgba(0,0,0,0.25); text-align:center; font-family:'Vazirmatn',sans-serif;">
+                <div style="font-size:2rem; margin-bottom:10px;">✅</div>
+                <h3 style="margin:0 0 8px; color:#1e3c72; font-weight:900;">از اطلاع‌رسانی شما ممنون</h3>
+                <p style="margin:0; color:#455a64; font-weight:700;">گزارش شما ثبت شد و برای ادمین دانشکده ارسال گردید.</p>
+            </div>
+        </div>`;
+        document.body.insertAdjacentHTML('beforeend', html);
+    }
+    const modal = document.getElementById(id);
+    modal.style.display = 'flex';
+    setTimeout(() => { modal.style.display = 'none'; modal.remove(); }, 2200);
+}
+</script>
+<!-- Ad Popup and Mini-Box -->
+<div id="ad-popup" class="ad-popup" role="dialog" aria-labelledby="ad-popup-title" aria-modal="true" style="display: none;">
+    <div class="ad-popup-backdrop"></div>
+    <div class="ad-popup-container">
+        <button class="ad-popup-close" aria-label="بستن تبلیغ" onclick="closeAdPopup()">✕</button>
+        <a href="#" id="ad-popup-link" class="ad-popup-content" onclick="trackAdClick(event, 'popup')">
+            <div class="ad-popup-image-wrapper">
+                <img id="ad-popup-image" src="" alt="" class="ad-popup-image" loading="lazy">
+            </div>
+            <div class="ad-popup-overlay">
+                <h3 id="ad-popup-title" class="ad-popup-title"></h3>
+            </div>
+        </a>
+    </div>
+</div>
+
+<div id="ad-mini-box" class="ad-mini-box" style="display: none;">
+    <button class="ad-mini-box-close" aria-label="بستن" onclick="closeAdMiniBox()">✕</button>
+    <a href="#" id="ad-mini-box-link" class="ad-mini-box-content" onclick="trackAdClick(event, 'mini-box')">
+        <div class="ad-mini-box-image-wrapper">
+            <img id="ad-mini-box-image" src="" alt="" class="ad-mini-box-image" loading="lazy">
+        </div>
+        <div class="ad-mini-box-overlay">
+            <span id="ad-mini-box-title" class="ad-mini-box-title"></span>
+        </div>
+    </a>
+</div>
+
+<style>
+/* Ad Popup Styles */
+.ad-popup {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: fadeIn 0.3s ease-out;
+}
+
+.ad-popup-backdrop {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(4px);
+    cursor: pointer;
+}
+
+.ad-popup-container {
+    position: relative;
+    z-index: 1;
+    max-width: 90vw;
+    max-height: 90vh;
+    width: 600px;
+    height: 400px;
+    background: white;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+    animation: scaleIn 0.3s ease-out;
+}
+
+.ad-popup-close {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    z-index: 2;
+    width: 36px;
+    height: 36px;
+    border: none;
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: 50%;
+    font-size: 20px;
+    font-weight: bold;
+    color: #333;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.ad-popup-close:hover {
+    background: white;
+    transform: scale(1.1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.ad-popup-content {
+    display: block;
+    width: 100%;
+    height: 100%;
+    position: relative;
+    text-decoration: none;
+    overflow: hidden;
+}
+
+.ad-popup-image-wrapper {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    overflow: hidden;
+}
+
+.ad-popup-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.ad-popup-overlay {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0.4), transparent);
+    padding: 24px;
+    color: white;
+}
+
+.ad-popup-title {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 700;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+    line-height: 1.3;
+}
+
+/* Ad Mini-Box Styles */
+.ad-mini-box {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    z-index: 9999;
+    width: 200px;
+    height: 120px;
+    background: white;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+    animation: slideInLeft 0.4s ease-out;
+    transition: transform 0.2s ease;
+}
+
+.ad-mini-box:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.3);
+}
+
+.ad-mini-box-close {
+    position: absolute;
+    top: 6px;
+    left: 6px;
+    z-index: 2;
+    width: 24px;
+    height: 24px;
+    border: none;
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: 50%;
+    font-size: 14px;
+    font-weight: bold;
+    color: #333;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+.ad-mini-box-close:hover {
+    background: white;
+    transform: scale(1.1);
+}
+
+.ad-mini-box-content {
+    display: block;
+    width: 100%;
+    height: 100%;
+    position: relative;
+    text-decoration: none;
+    overflow: hidden;
+}
+
+.ad-mini-box-image-wrapper {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    overflow: hidden;
+}
+
+.ad-mini-box-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.ad-mini-box-overlay {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.7), transparent);
+    padding: 12px;
+    color: white;
+}
+
+.ad-mini-box-title {
+    display: block;
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+    line-height: 1.2;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Animations */
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes scaleIn {
+    from {
+        transform: scale(0.9);
+        opacity: 0;
+    }
+    to {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+@keyframes slideInLeft {
+    from {
+        transform: translateX(-120%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+    .ad-popup-container {
+        width: 95vw;
+        height: 60vh;
+        max-height: 400px;
+    }
+    
+    .ad-popup-title {
+        font-size: 1.2rem;
+        padding: 16px;
+    }
+    
+    .ad-mini-box {
+        width: 160px;
+        height: 100px;
+        bottom: 15px;
+        left: 15px;
+    }
+    
+    .ad-mini-box-title {
+        font-size: 0.75rem;
+        padding: 10px;
+    }
+}
+
+@media (max-width: 480px) {
+    .ad-popup-container {
+        width: 95vw;
+        height: 50vh;
+        max-height: 350px;
+    }
+    
+    .ad-mini-box {
+        width: 140px;
+        height: 90px;
+        bottom: 10px;
+        left: 10px;
+    }
+}
+</style>
+
+<script>
+(function() {
+    'use strict';
+    
+    const POPUP_SESSION_KEY = 'ad_popup_shown_teacher_classes';
+    const MINI_BOX_SESSION_KEY = 'ad_mini_box_ad_id';
+    let currentAdId = null;
+    let popupShown = false;
+    let autoCloseTimer = null;
+    let previouslyFocusedElement = null;
+    
+    // Fetch ad on page load
+    async function fetchAd() {
+        try {
+            const response = await fetch('{% url "classes:get_active_ad" %}');
+            const data = await response.json();
+            
+            if (data.ad) {
+                currentAdId = data.ad.id;
+                setupAd(data.ad);
+            }
+        } catch (error) {
+            console.error('Error fetching ad:', error);
+        }
+    }
+    
+    function setupAd(ad) {
+        // Set up popup
+        const popupImage = document.getElementById('ad-popup-image');
+        const popupTitle = document.getElementById('ad-popup-title');
+        const popupLink = document.getElementById('ad-popup-link');
+        
+        if (popupImage && popupTitle && popupLink) {
+            popupImage.src = ad.image_url;
+            popupImage.alt = ad.name;
+            popupTitle.textContent = ad.name;
+            popupLink.href = ad.link;
+            popupLink.target = '_blank';
+            popupLink.rel = 'noopener noreferrer';
+        }
+        
+        // Set up mini-box
+        const miniBoxImage = document.getElementById('ad-mini-box-image');
+        const miniBoxTitle = document.getElementById('ad-mini-box-title');
+        const miniBoxLink = document.getElementById('ad-mini-box-link');
+        
+        if (miniBoxImage && miniBoxTitle && miniBoxLink) {
+            miniBoxImage.src = ad.image_url;
+            miniBoxImage.alt = ad.name;
+            miniBoxTitle.textContent = ad.name;
+            miniBoxLink.href = ad.link;
+            miniBoxLink.target = '_blank';
+            miniBoxLink.rel = 'noopener noreferrer';
+        }
+        
+        // Check if popup should be shown
+        const popupShownInSession = sessionStorage.getItem(POPUP_SESSION_KEY) === 'true';
+        const savedAdId = sessionStorage.getItem(MINI_BOX_SESSION_KEY);
+        
+        if (!popupShownInSession) {
+            showPopup();
+        } else if (savedAdId === String(currentAdId)) {
+            // Restore mini-box if same ad
+            showMiniBox();
+        }
+    }
+    
+    function showPopup() {
+        const popup = document.getElementById('ad-popup');
+        if (!popup) return;
+        
+        popup.style.display = 'flex';
+        popupShown = true;
+        
+        // Trap focus
+        previouslyFocusedElement = document.activeElement;
+        trapFocus(popup);
+        
+        // Record impression
+        trackAdEvent('impression');
+        
+        // Auto-dismiss after 2 seconds
+        autoCloseTimer = setTimeout(() => {
+            closeAdPopup();
+        }, 2000);
+        
+        // Prevent body scroll
+        document.body.style.overflow = 'hidden';
+    }
+    
+    function closeAdPopup() {
+        const popup = document.getElementById('ad-popup');
+        if (!popup) return;
+        
+        popup.style.display = 'none';
+        popupShown = false;
+        
+        // Restore focus
+        if (previouslyFocusedElement) {
+            previouslyFocusedElement.focus();
+        }
+        
+        // Clear timer
+        if (autoCloseTimer) {
+            clearTimeout(autoCloseTimer);
+            autoCloseTimer = null;
+        }
+        
+        // Restore body scroll
+        document.body.style.overflow = '';
+        
+        // Mark as shown in session
+        sessionStorage.setItem(POPUP_SESSION_KEY, 'true');
+        sessionStorage.setItem(MINI_BOX_SESSION_KEY, String(currentAdId));
+        
+        // Show mini-box
+        showMiniBox();
+    }
+    
+    function showMiniBox() {
+        const miniBox = document.getElementById('ad-mini-box');
+        if (miniBox) {
+            miniBox.style.display = 'block';
+        }
+    }
+    
+    function closeAdMiniBox() {
+        const miniBox = document.getElementById('ad-mini-box');
+        if (miniBox) {
+            miniBox.style.display = 'none';
+        }
+    }
+    
+    // Global functions for onclick handlers
+    window.closeAdPopup = closeAdPopup;
+    window.closeAdMiniBox = closeAdMiniBox;
+    
+    window.trackAdClick = function(event, source) {
+        if (currentAdId) {
+            trackAdEvent('click');
+        }
+        // Link will open naturally
+    };
+    
+    function trackAdEvent(eventType) {
+        if (!currentAdId) return;
+        
+        fetch('{% url "classes:track_ad_event" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({
+                ad_id: currentAdId,
+                event_type: eventType
+            })
+        }).catch(error => {
+            console.error('Error tracking ad event:', error);
+        });
+    }
+    
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+    
+    function trapFocus(element) {
+        const focusableElements = element.querySelectorAll(
+            'a[href], button, textarea, input, select, [tabindex]:not([tabindex="-1"])'
+        );
+        const firstFocusable = focusableElements[0];
+        const lastFocusable = focusableElements[focusableElements.length - 1];
+        
+        function handleKeyDown(e) {
+            if (e.key === 'Tab') {
+                if (e.shiftKey) {
+                    if (document.activeElement === firstFocusable) {
+                        lastFocusable.focus();
+                        e.preventDefault();
+                    }
+                } else {
+                    if (document.activeElement === lastFocusable) {
+                        firstFocusable.focus();
+                        e.preventDefault();
+                    }
+                }
+            } else if (e.key === 'Escape') {
+                closeAdPopup();
+            }
+        }
+        
+        element.addEventListener('keydown', handleKeyDown);
+        
+        if (firstFocusable) {
+            firstFocusable.focus();
+        }
+    }
+    
+    // Close on backdrop click
+    document.addEventListener('DOMContentLoaded', function() {
+        const backdrop = document.querySelector('.ad-popup-backdrop');
+        if (backdrop) {
+            backdrop.addEventListener('click', closeAdPopup);
+        }
+        
+        // Fetch ad
+        fetchAd();
+    });
+})();
+</script>
 {% endblock %}

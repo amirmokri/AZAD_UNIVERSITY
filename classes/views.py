@@ -14,13 +14,13 @@ All views include error handling and are optimized for Persian/Farsi content.
 from django.shortcuts import render, get_object_or_404
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
-from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
 from django.utils import timezone
 from django.contrib.auth.decorators import login_required
-from datetime import timedelta, time as dtime
+from datetime import timedelta, time as dtime, date
 import hashlib
 import logging
-from .models import Faculty, ClassSchedule, Floor, Room, Course, Teacher
+from .models import Faculty, ClassSchedule, Floor, Room, Course, Teacher, Ad, AdTracking, ScheduleFlag
 from .search import search_courses, search_teachers, autocomplete_courses, autocomplete_teachers
 from django.db.models import Q
 import json
@@ -179,6 +179,7 @@ def time_selection(request, faculty_id, day):
 
 
 
+@ensure_csrf_cookie
 def floor_view(request, faculty_id, day, time):
     """
     Floor and room display view with search functionality.
@@ -205,6 +206,12 @@ def floor_view(request, faculty_id, day, time):
         Rendered floor_view.html template with floors and schedules
     """
     
+    # Maintenance: auto-reset any expired cancellations before rendering
+    try:
+        ClassSchedule.auto_reset_cancelled_schedules()
+    except Exception:
+        pass
+
     # Get the selected faculty
     faculty = get_object_or_404(Faculty, id=faculty_id, is_active=True)
     
@@ -411,6 +418,7 @@ def floor_view(request, faculty_id, day, time):
         return render(request, 'classes/error.html', context, status=500)
 
 
+@ensure_csrf_cookie
 def teacher_classes_view(request, day):
     """
     Show all classes for a specific teacher on a specific day.
@@ -455,6 +463,8 @@ def teacher_classes_view(request, day):
     }
     
     try:
+        # Maintenance cleanup for expired cancellations
+        ClassSchedule.auto_reset_cancelled_schedules()
         # Search for the teacher's classes on this day
         classes = ClassSchedule.objects.filter(
             day_of_week=day,
@@ -813,8 +823,12 @@ def admin_toggle_holding(request):
         # Get the schedule
         schedule = get_object_or_404(ClassSchedule, id=schedule_id, is_active=True)
         
-        # Update holding status
+        # Update holding status and cancellation timestamp
         schedule.is_holding = is_holding
+        if is_holding:
+            schedule.cancelled_at = None
+        else:
+            schedule.cancelled_at = timezone.now()
         schedule.save()
         
         
@@ -831,3 +845,142 @@ def admin_toggle_holding(request):
     except Exception as e:
         logger.error(f"Admin toggle holding error: {str(e)}", exc_info=True)
         return JsonResponse({'success': False, 'error': 'خطا در بروزرسانی وضعیت کلاس'}, status=500)
+
+
+def get_active_ad(request):
+    """
+    Get an active ad using round-robin rotation.
+    
+    Uses Redis INCR if available for precise round-robin distribution.
+    Falls back to deterministic daily rotation if Redis is not available.
+    
+    Returns:
+        JsonResponse with ad data or null if no ads available
+    """
+    try:
+        servable_ads = list(Ad.get_servable_ads())
+        
+        if not servable_ads:
+            return JsonResponse({'ad': None})
+        
+        # Try Redis first for precise round-robin
+        try:
+            import redis
+            from django.conf import settings
+            
+            redis_client = redis.Redis(
+                host=getattr(settings, 'REDIS_HOST', 'localhost'),
+                port=getattr(settings, 'REDIS_PORT', 6379),
+                db=getattr(settings, 'REDIS_DB', 0),
+                decode_responses=True
+            )
+            
+            # Use Redis INCR with modulo for round-robin
+            counter_key = 'ad_rotation_counter'
+            counter = redis_client.incr(counter_key)
+            selected_index = (counter - 1) % len(servable_ads)
+            selected_ad = servable_ads[selected_index]
+            
+        except (redis.ConnectionError, AttributeError, ImportError):
+            # Fallback: deterministic daily rotation based on date
+            today = date.today()
+            day_hash = int(hashlib.md5(str(today).encode()).hexdigest(), 16)
+            selected_index = day_hash % len(servable_ads)
+            selected_ad = servable_ads[selected_index]
+        
+        return JsonResponse({
+            'ad': {
+                'id': selected_ad.id,
+                'name': selected_ad.name,
+                'image_url': selected_ad.image.url if selected_ad.image else None,
+                'link': selected_ad.link,
+            }
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting active ad: {str(e)}", exc_info=True)
+        return JsonResponse({'ad': None, 'error': str(e)})
+
+
+@require_http_methods(["POST"])
+def track_ad_event(request):
+    """
+    Track ad impressions and clicks.
+    
+    Expects JSON body with:
+        - ad_id: ID of the ad
+        - event_type: 'impression' or 'click'
+    
+    Returns:
+        JsonResponse with success status
+    """
+    try:
+        data = json.loads(request.body)
+        ad_id = data.get('ad_id')
+        event_type = data.get('event_type')
+        
+        if not ad_id or event_type not in ['impression', 'click']:
+            return JsonResponse({
+                'success': False,
+                'error': 'Invalid parameters: ad_id and event_type (impression/click) are required'
+            }, status=400)
+        
+        # Verify ad exists and is servable
+        try:
+            ad = Ad.objects.get(id=ad_id, is_active=True)
+        except Ad.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'error': 'Ad not found or not active'
+            }, status=404)
+        
+        # Record the event
+        AdTracking.record_event(ad_id=ad_id, event_type=event_type)
+        
+        return JsonResponse({'success': True})
+        
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Invalid JSON data'}, status=400)
+    except Exception as e:
+        logger.error(f"Error tracking ad event: {str(e)}", exc_info=True)
+        return JsonResponse({'success': False, 'error': 'خطا در ثبت رویداد'}, status=500)
+
+
+@require_http_methods(["POST"])
+@csrf_exempt
+def report_schedule_flag(request):
+    """
+    Public API to report a schedule issue by students.
+    Expects JSON: { schedule_id: int, reason: 'not_holding'|'data_wrong', description?: str }
+    """
+    try:
+        data = json.loads(request.body or '{}')
+        schedule_id = data.get('schedule_id')
+        reason = data.get('reason')
+        description = (data.get('description') or '').strip()
+
+        if not schedule_id or reason not in [ScheduleFlag.REASON_NOT_HOLDING, ScheduleFlag.REASON_DATA_WRONG]:
+            return JsonResponse({'success': False, 'error': 'پارامترهای نامعتبر'}, status=400)
+
+        schedule = ClassSchedule.objects.select_related('course', 'room', 'room__floor', 'course__faculty').filter(id=schedule_id, is_active=True).first()
+        if not schedule:
+            return JsonResponse({'success': False, 'error': 'کلاس یافت نشد'}, status=404)
+
+        faculty = ScheduleFlag.infer_faculty_from_schedule(schedule)
+        if not faculty:
+            return JsonResponse({'success': False, 'error': 'دانشکده این کلاس نامشخص است'}, status=400)
+
+        ScheduleFlag.objects.create(
+            schedule=schedule,
+            faculty=faculty,
+            reason=reason,
+            description=description[:1000] if description else None,
+            reporter_ip=request.META.get('REMOTE_ADDR')
+        )
+
+        return JsonResponse({'success': True, 'message': 'گزارش شما ثبت شد. متشکریم.'})
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'داده نامعتبر'}, status=400)
+    except Exception as e:
+        logger.error(f"Error reporting schedule flag: {str(e)}", exc_info=True)
+        return JsonResponse({'success': False, 'error': 'خطای سرور'}, status=500)

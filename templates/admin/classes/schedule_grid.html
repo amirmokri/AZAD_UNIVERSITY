@@ -681,37 +681,67 @@ document.addEventListener('DOMContentLoaded', function(){
   btn.addEventListener('click', async function(e){
     e.preventDefault();
     const { jsPDF } = window.jspdf;
-    const el = document.getElementById('timelineRoot');
-    const timelineScroll = el.querySelector('.timeline-scroll');
 
-    // Store original styles
-    const originalStyles = {
-      width: el.style.width,
-      height: el.style.height,
-      overflow: timelineScroll ? timelineScroll.style.overflow : '',
-      maxWidth: el.style.maxWidth,
-      maxHeight: el.style.maxHeight
+    // Target only the grid for export (captures full timeline horizontally and vertically)
+    const root = document.getElementById('timelineRoot');
+    const timelineScroll = root.querySelector('.timeline-scroll');
+    const grid = root.querySelector('.timeline-grid');
+    if (!grid) return;
+
+    // Store original styles we will temporarily change
+    const originalRootStyles = {
+      width: root.style.width,
+      height: root.style.height,
+      maxWidth: root.style.maxWidth,
+      maxHeight: root.style.maxHeight
+    };
+    const originalScrollStyles = timelineScroll ? {
+      overflowX: timelineScroll.style.overflowX,
+      overflowY: timelineScroll.style.overflowY
+    } : null;
+    const originalGridStyles = {
+      width: grid.style.width,
+      height: grid.style.height,
+      positionStickyFix: []
     };
 
+    // Also temporarily neutralize sticky elements so html2canvas paints them in-flow once
+    const stickyNodes = grid.querySelectorAll('.sticky-room-col, .tick-label');
+    stickyNodes.forEach((node) => {
+      originalGridStyles.positionStickyFix.push({ node: node, position: node.style.position, left: node.style.left, top: node.style.top });
+      node.style.position = 'static';
+      node.style.left = 'auto';
+      node.style.top = 'auto';
+    });
+
     try {
-      // Remove scroll constraints and expand to full content
+      // Expand containers to reveal full scrollable content
       if (timelineScroll) {
-        timelineScroll.style.overflow = 'visible';
+        timelineScroll.style.overflowX = 'visible';
+        timelineScroll.style.overflowY = 'visible';
       }
-      el.style.width = 'auto';
-      el.style.height = 'auto';
-      el.style.maxWidth = 'none';
-      el.style.maxHeight = 'none';
+      root.style.width = 'auto';
+      root.style.height = 'auto';
+      root.style.maxWidth = 'none';
+      root.style.maxHeight = 'none';
+
+      // Size grid to its full scroll area
+      const targetWidth = grid.scrollWidth;
+      const targetHeight = grid.scrollHeight;
+      grid.style.width = targetWidth + 'px';
+      grid.style.height = targetHeight + 'px';
 
       // Wait a moment for layout to settle
       await new Promise(resolve => setTimeout(resolve, 100));
 
-      // Capture with full dimensions
-      const canvas = await html2canvas(el, { 
-        scale: 1.5, 
+      // Capture with full dimensions (no paging)
+      const canvas = await html2canvas(grid, {
+        scale: 1.5,
         backgroundColor: '#ffffff',
-        width: el.scrollWidth,
-        height: el.scrollHeight,
+        width: targetWidth,
+        height: targetHeight,
+        windowWidth: targetWidth,
+        windowHeight: targetHeight,
         scrollX: 0,
         scrollY: 0,
         useCORS: true,
@@ -719,12 +749,11 @@ document.addEventListener('DOMContentLoaded', function(){
       });
 
       const imgData = canvas.toDataURL('image/png');
-      
-      // Create PDF with dynamic dimensions
+
+      // Create a single-page PDF sized exactly to content to avoid pagination
       const pdf = new jsPDF('l', 'pt', [canvas.width, canvas.height]);
       pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
-      
-      // Generate filename with timestamp
+
       const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
       const filename = `schedule-grid-{{ selected_day|default:"all" }}-floor-{{ selected_floor|default:"all" }}-${timestamp}.pdf`;
       pdf.save(filename);
@@ -733,13 +762,22 @@ document.addEventListener('DOMContentLoaded', function(){
       console.error('PDF export error:', error);
       alert('خطا در صادرات PDF: ' + error.message);
     } finally {
+      // Restore sticky nodes
+      originalGridStyles.positionStickyFix.forEach(({ node, position, left, top }) => {
+        node.style.position = position;
+        node.style.left = left;
+        node.style.top = top;
+      });
       // Restore original styles
-      el.style.width = originalStyles.width;
-      el.style.height = originalStyles.height;
-      el.style.maxWidth = originalStyles.maxWidth;
-      el.style.maxHeight = originalStyles.maxHeight;
-      if (timelineScroll) {
-        timelineScroll.style.overflow = originalStyles.overflow;
+      grid.style.width = originalGridStyles.width;
+      grid.style.height = originalGridStyles.height;
+      root.style.width = originalRootStyles.width;
+      root.style.height = originalRootStyles.height;
+      root.style.maxWidth = originalRootStyles.maxWidth;
+      root.style.maxHeight = originalRootStyles.maxHeight;
+      if (timelineScroll && originalScrollStyles) {
+        timelineScroll.style.overflowX = originalScrollStyles.overflowX;
+        timelineScroll.style.overflowY = originalScrollStyles.overflowY;
       }
     }
   });

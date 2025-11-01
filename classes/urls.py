@@ -43,6 +43,12 @@ urlpatterns = [
     # Admin endpoints
     path('api/admin-toggle-holding/', views.admin_toggle_holding, name='admin_toggle_holding'),
     
+    # Ad endpoints
+    path('api/ad/', views.get_active_ad, name='get_active_ad'),
+    path('api/ad/track/', views.track_ad_event, name='track_ad_event'),
+    # Student flag endpoint
+    path('api/report-flag/', views.report_schedule_flag, name='report_schedule_flag'),
+    
     # Error pages
     path('error/', views.error_404, name='error_404'),
 ]

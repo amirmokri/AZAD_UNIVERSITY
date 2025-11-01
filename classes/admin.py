@@ -19,12 +19,15 @@ from django.http import JsonResponse
 from django.template.response import TemplateResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.shortcuts import render, redirect
-from django.db.models import Q, Min, Max
+from django.db import models
+from django.db.models import Q, Min, Max, Sum
+from django.contrib.auth.models import Permission
+from django.contrib.contenttypes.models import ContentType
 from django.utils.timezone import localtime
 from datetime import time, timedelta, datetime
 from math import ceil
 import logging
-from .models import Faculty, Teacher, Course, Floor, Room, ClassSchedule, ImportJob
+from .models import Faculty, Teacher, Course, Floor, Room, ClassSchedule, ImportJob, Ad, AdTracking, FacultyAdminProfile, ScheduleFlag
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -139,9 +142,106 @@ def class_to_block(s, min_start, slot_minutes=SLOT_MINUTES):
         "span_cols": span_cols,
     }
 
+class FacultyScopedAdminMixin:
+    """
+    Scope admin querysets and foreign key choices by the user's faculty.
+    Superusers are unrestricted; staff with a FacultyAdminProfile are restricted.
+    """
+
+    faculty_fk_names = ("faculty",)
+
+    def _get_user_faculty(self, request):
+        if request.user.is_superuser:
+            return None
+        try:
+            profile = getattr(request.user, "faculty_admin_profile", None)
+            if profile and profile.is_active and profile.faculty:
+                return profile.faculty
+        except Exception:
+            return None
+        return None
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        user_faculty = self._get_user_faculty(request)
+        if not user_faculty:
+            return qs
+        model = self.model
+        for fk_name in self.faculty_fk_names:
+            if hasattr(model, fk_name):
+                return qs.filter(**{f"{fk_name}": user_faculty})
+        # Fallbacks for models without direct faculty FK
+        if model is ClassSchedule:
+            return qs.filter(Q(course__faculty=user_faculty) | Q(room__floor__faculty=user_faculty))
+        if model is Room:
+            return qs.filter(Q(faculty=user_faculty) | Q(floor__faculty=user_faculty))
+        if model is Floor:
+            return qs.filter(faculty=user_faculty)
+        if model is ImportJob:
+            return qs.filter(faculty=user_faculty)
+        return qs
+
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        user_faculty = self._get_user_faculty(request)
+        if user_faculty and db_field.name == "faculty":
+            kwargs["queryset"] = Faculty.objects.filter(pk=user_faculty.pk)
+        if user_faculty and db_field.name == "course":
+            kwargs["queryset"] = Course.objects.filter(faculty=user_faculty, is_active=True)
+        if user_faculty and db_field.name == "teacher":
+            kwargs["queryset"] = Teacher.objects.filter(faculty=user_faculty, is_active=True)
+        if user_faculty and db_field.name == "floor":
+            kwargs["queryset"] = Floor.objects.filter(faculty=user_faculty, is_active=True)
+        if user_faculty and db_field.name == "room":
+            kwargs["queryset"] = Room.objects.filter(Q(faculty=user_faculty) | Q(floor__faculty=user_faculty), is_active=True)
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
+
+    def save_model(self, request, obj, form, change):
+        user_faculty = self._get_user_faculty(request)
+        if user_faculty and hasattr(obj, "faculty") and obj.faculty is None:
+            obj.faculty = user_faculty
+        return super().save_model(request, obj, form, change)
+
+    # Hide faculty field and faculty list filters for scoped users
+    def get_fieldsets(self, request, obj=None):
+        fieldsets = super().get_fieldsets(request, obj)
+        user_faculty = self._get_user_faculty(request)
+        if not user_faculty:
+            return fieldsets
+        # Remove any 'faculty' field from fieldsets for scoped users
+        new_fieldsets = []
+        for title, opts in fieldsets:
+            fields = list(opts.get('fields', ()))
+            if 'faculty' in fields:
+                fields = [f for f in fields if f != 'faculty']
+            new_opts = dict(opts)
+            new_opts['fields'] = tuple(fields)
+            new_fieldsets.append((title, new_opts))
+        return tuple(new_fieldsets)
+
+    def get_list_filter(self, request):
+        filters = list(super().get_list_filter(request))
+        user_faculty = self._get_user_faculty(request)
+        if not user_faculty:
+            return filters
+        # Remove faculty-based filters for scoped users
+        blocked = { 'faculty', 'course__faculty', 'room__faculty' }
+        return [f for f in filters if (getattr(f, 'parameter_name', f) not in blocked)]
+
+    # By default, allow scoped users to see the model in admin index
+    allow_for_scoped = True
+
+    def get_model_perms(self, request):
+        perms = super().get_model_perms(request)
+        user_faculty = self._get_user_faculty(request)
+        if user_faculty and not getattr(self, 'allow_for_scoped', True):
+            # Hide model completely for scoped users
+            return {}
+        return perms
+
 
 @admin.register(Faculty)
-class FacultyAdmin(admin.ModelAdmin):
+class FacultyAdmin(FacultyScopedAdminMixin, admin.ModelAdmin):
+    allow_for_scoped = False  # Scoped users should not see/manage faculties
     """
     Admin configuration for Faculty model.
     Manages university faculties/departments.
@@ -195,7 +295,7 @@ class FacultyAdmin(admin.ModelAdmin):
 
 
 @admin.register(Teacher)
-class TeacherAdmin(admin.ModelAdmin):
+class TeacherAdmin(FacultyScopedAdminMixin, admin.ModelAdmin):
     """
     Admin configuration for Teacher model.
     Provides comprehensive management of teacher records.
@@ -262,7 +362,7 @@ class TeacherAdmin(admin.ModelAdmin):
 
 
 @admin.register(Course)
-class CourseAdmin(admin.ModelAdmin):
+class CourseAdmin(FacultyScopedAdminMixin, admin.ModelAdmin):
     """
     Admin configuration for Course model.
     Manages course information with search and filtering.
@@ -320,7 +420,7 @@ class CourseAdmin(admin.ModelAdmin):
 
 
 @admin.register(Floor)
-class FloorAdmin(admin.ModelAdmin):
+class FloorAdmin(FacultyScopedAdminMixin, admin.ModelAdmin):
     """
     Admin configuration for Floor model.
     Displays floors with room count.
@@ -374,7 +474,7 @@ class FloorAdmin(admin.ModelAdmin):
 
 
 @admin.register(Room)
-class RoomAdmin(admin.ModelAdmin):
+class RoomAdmin(FacultyScopedAdminMixin, admin.ModelAdmin):
     """
     Admin configuration for Room model.
     Comprehensive room management with floor filtering.
@@ -438,7 +538,7 @@ class RoomAdmin(admin.ModelAdmin):
 
 
 @admin.register(ClassSchedule)
-class ClassScheduleAdmin(admin.ModelAdmin):
+class ClassScheduleAdmin(FacultyScopedAdminMixin, admin.ModelAdmin):
     change_list_template = 'admin/schedules/classschedule_changelist.html'
     """
     Admin configuration for ClassSchedule model.
@@ -491,7 +591,30 @@ class ClassScheduleAdmin(admin.ModelAdmin):
         from schedules.importers.ai_excel_importer import import_ai_excel
 
         class ImportForm(forms.Form):
-            faculty = forms.ModelChoiceField(queryset=Faculty.objects.filter(is_active=True), label='دانشکده', required=True)
+            def __init__(self, *args, **kwargs):
+                self._request = kwargs.pop('request', None)
+                super().__init__(*args, **kwargs)
+                # For scoped users, hide the faculty field entirely and auto-assign
+                if self._request and not self._request.user.is_superuser:
+                    profile = getattr(self._request.user, 'faculty_admin_profile', None)
+                    if profile and profile.faculty:
+                        self.fields['faculty'] = forms.ModelChoiceField(
+                            queryset=Faculty.objects.filter(pk=profile.faculty.pk, is_active=True),
+                            initial=profile.faculty,
+                            widget=forms.HiddenInput(),
+                            required=True,
+                            label='دانشکده'
+                        )
+                    else:
+                        self.fields['faculty'] = forms.ModelChoiceField(
+                            queryset=Faculty.objects.none(), required=True, widget=forms.HiddenInput(), label='دانشکده'
+                        )
+                else:
+                    self.fields['faculty'] = forms.ModelChoiceField(
+                        queryset=Faculty.objects.filter(is_active=True), label='دانشکده', required=True
+                    )
+
+            faculty = forms.ModelChoiceField(queryset=Faculty.objects.none(), label='دانشکده', required=True)
             semester = forms.CharField(label='نیمسال', required=True)
             academic_year = forms.CharField(label='سال تحصیلی', required=True)
             excel = forms.FileField(label='فایل اکسل', required=True)
@@ -504,7 +627,7 @@ class ClassScheduleAdmin(admin.ModelAdmin):
         }
 
         if request.method == 'POST':
-            form = ImportForm(request.POST, request.FILES)
+            form = ImportForm(request.POST, request.FILES, request=request)
             if form.is_valid():
                 faculty = form.cleaned_data['faculty']
                 semester = form.cleaned_data['semester']
@@ -525,7 +648,7 @@ class ClassScheduleAdmin(admin.ModelAdmin):
                 )
                 return JsonResponse({'success': True})
         else:
-            form = ImportForm()
+            form = ImportForm(request=request)
 
         context['form'] = form
         return TemplateResponse(request, 'admin/schedules/import_excel.html', context)
@@ -667,6 +790,9 @@ class ClassScheduleAdmin(admin.ModelAdmin):
         """
         # Filter base queryset
         qs = ClassSchedule.objects.select_related('course', 'teacher', 'room', 'room__floor')
+        user_faculty = self._get_user_faculty(request)
+        if user_faculty:
+            qs = qs.filter(Q(course__faculty=user_faculty) | Q(room__floor__faculty=user_faculty))
         if day:
             qs = qs.filter(day_of_week=day)
         if floor:
@@ -696,9 +822,10 @@ class ClassScheduleAdmin(admin.ModelAdmin):
 
         # Build room list - show ALL rooms on the selected floor
         if floor:
-            rooms = (Room.objects.select_related('floor')
-                     .filter(floor__floor_number=floor, is_active=True)
-                     .order_by('floor__floor_number', 'room_number'))
+            rooms_qs = Room.objects.select_related('floor').filter(floor__floor_number=floor, is_active=True)
+            if user_faculty:
+                rooms_qs = rooms_qs.filter(Q(faculty=user_faculty) | Q(floor__faculty=user_faculty))
+            rooms = rooms_qs.order_by('floor__floor_number', 'room_number')
         else:
             # If no floor selected, show all rooms that have schedules for the day
             rooms = (Room.objects.select_related('floor')
@@ -772,8 +899,12 @@ class ClassScheduleAdmin(admin.ModelAdmin):
         band_b_windows = build_band_windows(BAND_B_MIN)
 
         # Get courses and teachers for modal dropdowns
-        courses = Course.objects.filter(is_active=True).select_related('faculty')
-        teachers = Teacher.objects.filter(is_active=True).select_related('faculty')
+        if user_faculty:
+            courses = Course.objects.filter(is_active=True, faculty=user_faculty).select_related('faculty')
+            teachers = Teacher.objects.filter(is_active=True, faculty=user_faculty).select_related('faculty')
+        else:
+            courses = Course.objects.filter(is_active=True).select_related('faculty')
+            teachers = Teacher.objects.filter(is_active=True).select_related('faculty')
 
         # Debug logging
         logger.info(f"Grid view - Day: {day}, Floor: {floor}")
@@ -815,22 +946,27 @@ class ClassScheduleAdmin(admin.ModelAdmin):
         
         # Get statistics for each day
         for day_value, day_name in days:
-            schedules_count = ClassSchedule.objects.filter(
-                day_of_week=day_value, 
-                is_active=True
-            ).count()
-            
-            active_schedules_count = ClassSchedule.objects.filter(
-                day_of_week=day_value, 
-                is_active=True,
-                is_holding=True
-            ).count()
-            
-            rooms_count = Room.objects.filter(
-                schedules__day_of_week=day_value,
-                schedules__is_active=True,
-                is_active=True
-            ).distinct().count()
+            user_faculty = self._get_user_faculty(request)
+            base_qs = ClassSchedule.objects.filter(day_of_week=day_value, is_active=True)
+            if user_faculty:
+                base_qs = base_qs.filter(Q(course__faculty=user_faculty) | Q(room__floor__faculty=user_faculty))
+            schedules_count = base_qs.count()
+
+            active_qs = base_qs.filter(is_holding=True)
+            active_schedules_count = active_qs.count()
+
+            if user_faculty:
+                rooms_count = Room.objects.filter(
+                    is_active=True,
+                    schedules__day_of_week=day_value,
+                    schedules__is_active=True,
+                ).filter(Q(faculty=user_faculty) | Q(floor__faculty=user_faculty)).distinct().count()
+            else:
+                rooms_count = Room.objects.filter(
+                    schedules__day_of_week=day_value,
+                    schedules__is_active=True,
+                    is_active=True
+                ).distinct().count()
             
             day_stats.append({
                 'value': day_value,
@@ -858,11 +994,20 @@ class ClassScheduleAdmin(admin.ModelAdmin):
             day_name = day_choices.get(day, day)
             
             # Get floors that have schedules for this day
-            floors = Floor.objects.filter(
-                rooms__schedules__day_of_week=day,
-                rooms__schedules__is_active=True,
-                is_active=True
-            ).distinct().order_by('floor_number')
+            user_faculty = self._get_user_faculty(request)
+            if user_faculty:
+                floors = Floor.objects.filter(
+                    is_active=True,
+                    faculty=user_faculty,
+                    rooms__schedules__day_of_week=day,
+                    rooms__schedules__is_active=True,
+                ).distinct().order_by('floor_number')
+            else:
+                floors = Floor.objects.filter(
+                    rooms__schedules__day_of_week=day,
+                    rooms__schedules__is_active=True,
+                    is_active=True
+                ).distinct().order_by('floor_number')
             
             floor_stats = []
             for floor in floors:
@@ -953,6 +1098,7 @@ class ClassScheduleAdmin(admin.ModelAdmin):
         """AJAX view to save schedule from chart popup."""
         if request.method == 'POST':
             try:
+                user_faculty = self._get_user_faculty(request)
                 schedule_id = request.POST.get('schedule_id')
                 room_id = request.POST.get('room_id')
                 day_of_week = request.POST.get('day_of_week')
@@ -965,10 +1111,26 @@ class ClassScheduleAdmin(admin.ModelAdmin):
                 academic_year = request.POST.get('academic_year', '')
                 is_holding = request.POST.get('is_holding') == 'true'
                 notes = request.POST.get('notes', '')
-                
+
+                # Faculty scope validation of provided FKs
+                if user_faculty:
+                    if course_id and not Course.objects.filter(id=course_id, faculty=user_faculty, is_active=True).exists():
+                        return JsonResponse({'success': False, 'error': 'دسترسی به این درس مجاز نیست'}, status=403)
+                    if teacher_id and not Teacher.objects.filter(id=teacher_id, faculty=user_faculty, is_active=True).exists():
+                        return JsonResponse({'success': False, 'error': 'دسترسی به این استاد مجاز نیست'}, status=403)
+                    if room_id and not Room.objects.filter(is_active=True).filter(Q(id=room_id) & (Q(faculty=user_faculty) | Q(floor__faculty=user_faculty))).exists():
+                        return JsonResponse({'success': False, 'error': 'دسترسی به این اتاق مجاز نیست'}, status=403)
+
                 if schedule_id:
                     # Update existing schedule with conflict check
-                    schedule = ClassSchedule.objects.get(id=schedule_id)
+                    if user_faculty:
+                        schedule = ClassSchedule.objects.filter(
+                            Q(id=schedule_id) & (Q(course__faculty=user_faculty) | Q(room__floor__faculty=user_faculty))
+                        ).first()
+                        if not schedule:
+                            return JsonResponse({'success': False, 'error': 'دسترسی به این برنامه مجاز نیست'}, status=403)
+                    else:
+                        schedule = ClassSchedule.objects.get(id=schedule_id)
                     # Prevent moving it into a full line by credit bucket if time/room/day changes
                     intended_room_id = room_id or schedule.room_id
                     intended_day = day_of_week or schedule.day_of_week
@@ -1184,7 +1346,15 @@ class ClassScheduleAdmin(admin.ModelAdmin):
                 schedule_id = data.get('schedule_id')
                 
                 if schedule_id:
-                    schedule = ClassSchedule.objects.get(id=schedule_id)
+                    user_faculty = self._get_user_faculty(request)
+                    if user_faculty:
+                        schedule = ClassSchedule.objects.filter(
+                            Q(id=schedule_id) & (Q(course__faculty=user_faculty) | Q(room__floor__faculty=user_faculty))
+                        ).first()
+                        if not schedule:
+                            return JsonResponse({'success': False, 'error': 'دسترسی به این برنامه مجاز نیست'}, status=403)
+                    else:
+                        schedule = ClassSchedule.objects.get(id=schedule_id)
                     schedule.delete()
                     return JsonResponse({'success': True})
                 else:
@@ -1204,7 +1374,8 @@ admin.site.index_title = 'خوش آمدید به پنل مدیریت'
 
 
 @admin.register(ImportJob)
-class ImportJobAdmin(admin.ModelAdmin):
+class ImportJobAdmin(FacultyScopedAdminMixin, admin.ModelAdmin):
+    allow_for_scoped = False  # Hide import logs for faculty-admins; principal only
     list_display = ['faculty', 'semester', 'academic_year', 'source_filename', 'total', 'inserted', 'updated', 'errors_count', 'dry_run', 'status', 'created_at']
     list_filter = ['faculty', 'semester', 'academic_year', 'dry_run', 'status']
     search_fields = ['source_filename']
@@ -1220,4 +1391,183 @@ class ImportJobAdmin(admin.ModelAdmin):
             )
         return format_html('<span style="color: green;">بدون خطا</span>')
     errors_count.short_description = "تعداد خطاها"
+
+
+@admin.register(Ad)
+class AdAdmin(admin.ModelAdmin):
+    allow_for_scoped = False  # Principal only
+    """Admin interface for Ad model."""
+    
+    list_display = ['name', 'is_active', 'priority', 'start_at', 'end_at', 'created_at', 'impressions_count', 'clicks_count', 'ctr']
+    list_filter = ['is_active', 'created_at', 'start_at', 'end_at']
+    search_fields = ['name', 'link']
+    readonly_fields = ['created_at', 'updated_at', 'image_preview']
+    
+    fieldsets = (
+        ('اطلاعات اصلی', {
+            'fields': ('name', 'image', 'image_preview', 'link')
+        }),
+        ('تنظیمات نمایش', {
+            'fields': ('is_active', 'priority', 'start_at', 'end_at')
+        }),
+        ('اطلاعات سیستم', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    def image_preview(self, obj):
+        """Display image preview in admin."""
+        if obj.image:
+            return format_html(
+                '<img src="{}" style="max-width: 300px; max-height: 200px; border-radius: 8px;" />',
+                obj.image.url
+            )
+        return format_html('<span style="color: #999;">هیچ تصویری بارگذاری نشده</span>')
+    image_preview.short_description = "پیش‌نمایش تصویر"
+    
+    def impressions_count(self, obj):
+        """Display total impressions."""
+        total = AdTracking.objects.filter(ad=obj, event_type='impression').aggregate(
+            total=models.Sum('count')
+        )['total'] or 0
+        return format_html('<strong>{}</strong>', total)
+    impressions_count.short_description = "تعداد نمایش‌ها"
+    
+    def clicks_count(self, obj):
+        """Display total clicks."""
+        total = AdTracking.objects.filter(ad=obj, event_type='click').aggregate(
+            total=models.Sum('count')
+        )['total'] or 0
+        return format_html('<strong>{}</strong>', total)
+    clicks_count.short_description = "تعداد کلیک‌ها"
+    
+    def ctr(self, obj):
+        """Display click-through rate."""
+        impressions = AdTracking.objects.filter(ad=obj, event_type='impression').aggregate(
+            total=models.Sum('count')
+        )['total'] or 0
+        clicks = AdTracking.objects.filter(ad=obj, event_type='click').aggregate(
+            total=models.Sum('count')
+        )['total'] or 0
+        
+        if impressions > 0:
+            rate = (clicks / impressions) * 100
+            color = 'green' if rate > 2 else 'orange' if rate > 1 else 'red'
+            return format_html(
+                '<span style="color: {}; font-weight: bold;">{:.2f}%</span>',
+                color, rate
+            )
+        return format_html('<span style="color: #999;">-</span>')
+    ctr.short_description = "نرخ کلیک (CTR)"
+
+
+@admin.register(AdTracking)
+class AdTrackingAdmin(admin.ModelAdmin):
+    allow_for_scoped = False  # Principal only
+    """Admin interface for AdTracking model."""
+    
+    list_display = ['ad', 'event_type', 'date', 'count', 'updated_at']
+    list_filter = ['event_type', 'date', 'ad']
+    search_fields = ['ad__name']
+    readonly_fields = ['created_at', 'updated_at']
+    date_hierarchy = 'date'
+    
+    fieldsets = (
+        ('اطلاعات ردیابی', {
+            'fields': ('ad', 'event_type', 'date', 'count')
+        }),
+        ('اطلاعات سیستم', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+
+
+@admin.register(FacultyAdminProfile)
+class FacultyAdminProfileAdmin(admin.ModelAdmin):
+    list_display = ['user', 'faculty', 'is_active', 'created_at', 'updated_at']
+    list_filter = ['is_active', 'faculty']
+    search_fields = ['user__username', 'user__email', 'faculty__faculty_name']
+    autocomplete_fields = ['user', 'faculty']
+
+    def save_model(self, request, obj, form, change):
+        super().save_model(request, obj, form, change)
+        # Ensure the linked user is staff and has model permissions for scoped admin usage
+        try:
+            user = obj.user
+            if not user.is_superuser:
+                if not user.is_staff:
+                    user.is_staff = True
+                    user.save(update_fields=['is_staff'])
+
+                # Grant add/change/delete/view perms for allowed models
+                allowed_models = [Teacher, Course, Floor, Room, ClassSchedule]
+                for model in allowed_models:
+                    ct = ContentType.objects.get_for_model(model)
+                    for action in ['add', 'change', 'delete', 'view']:
+                        codename = f"{action}_{model._meta.model_name}"
+                        try:
+                            perm = Permission.objects.get(content_type=ct, codename=codename)
+                            user.user_permissions.add(perm)
+                        except Permission.DoesNotExist:
+                            continue
+        except Exception:
+            # Do not break admin save on permission assignment issues
+            pass
+
+
+@admin.register(ScheduleFlag)
+class ScheduleFlagAdmin(FacultyScopedAdminMixin, admin.ModelAdmin):
+    """Admin for student-reported schedule flags, scoped by faculty.
+
+    Clicking a flag redirects to the related ClassSchedule change page for quick resolution.
+    """
+
+    faculty_fk_names = ("faculty",)
+    list_display = [
+        'id', 'schedule_display', 'reason_badge', 'created_at', 'faculty', 'go_to_schedule'
+    ]
+    list_filter = ['reason', 'faculty', 'created_at']
+    search_fields = ['schedule__course__course_name', 'schedule__teacher__full_name', 'schedule__course__course_code']
+    readonly_fields = ['schedule', 'faculty', 'reason', 'description', 'reporter_ip', 'created_at']
+    ordering = ['-created_at']
+    list_per_page = 50
+
+    fieldsets = (
+        ('گزارش', {
+            'fields': ('schedule', 'faculty', 'reason', 'description', 'reporter_ip', 'created_at')
+        }),
+    )
+
+    def schedule_display(self, obj):
+        return format_html('<strong>{}</strong><br/><small>{}</small>', obj.schedule.course.course_name, obj.schedule)
+    schedule_display.short_description = 'کلاس'
+
+    def reason_badge(self, obj):
+        color = '#f44336' if obj.reason == ScheduleFlag.REASON_NOT_HOLDING else '#ff9800'
+        return format_html('<span style="background:{};color:#fff;padding:3px 8px;border-radius:8px;font-weight:700;">{}</span>', color, obj.get_reason_display())
+    reason_badge.short_description = 'دلیل'
+
+    def has_change_permission(self, request, obj=None):
+        # Make flags read-only; handling happens on the schedule page
+        return False
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return request.user.is_superuser
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request).select_related('schedule', 'schedule__course', 'schedule__teacher')
+        return qs
+
+    def go_to_schedule(self, obj):
+        try:
+            url = reverse('admin:classes_classschedule_change', args=[obj.schedule_id])
+            return format_html('<a class="button" href="{}" style="background:#1976d2;color:#fff;padding:4px 10px;border-radius:6px;">ویرایش کلاس</a>', url)
+        except Exception:
+            return '-'
+    go_to_schedule.short_description = 'اقدام'
 
